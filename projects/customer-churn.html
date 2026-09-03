@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Churn and retention economics — Lohan De Silva</title>
+<meta name="description" content="Retention economics on a 7,043-account telecom book: survival analysis, a targeting model and the offer size that actually pays.">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="project-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <p class="work-domain">Subscription economics · Telecommunications</p>
+    <h1>Churn takes a quarter of the customers and a third of the revenue</h1>
+    <p class="lede">A 7,043-account telecom book, read for what churn is costing, which accounts carry the loss, and what a retention programme has to achieve before it pays for itself.</p>
+    <p class="links">
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis">Repository</a>
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis/blob/main/reports/executive-summary.md">Executive summary</a>
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis/blob/main/reports/technical-appendix.md">Technical appendix</a>
+    </p>
+  </header>
+
+  <div class="keyfigs">
+    <div><span class="fig-value">$1.67M</span><span class="fig-label">annualised revenue lost, on a $5.47M book</span></div>
+    <div><span class="fig-value">30.5%</span><span class="fig-label">of revenue lost, against 26.5% of accounts</span></div>
+    <div><span class="fig-value">0.836</span><span class="fig-label">holdout AUC on the targeting model</span></div>
+    <div><span class="fig-value">9.5%</span><span class="fig-label">save rate the recommended offer needs to break even</span></div>
+  </div>
+
+
+  <h2>The position</h2>
+  <p>The book carries $456,117 of monthly recurring revenue. In the observation
+  month 1,869 accounts closed — 26.5% of customers, but <strong>30.5% of
+  revenue</strong>. Leavers were billing $74.44 a month against $61.27 for the
+  accounts that stayed.</p>
+  <p>That gap is the finding that should change how the programme is funded.
+  Churn here is not a low-value-customer problem, and treating it as one has been
+  costing the higher-margin end of the book.</p>
+
+  <h2>Contract term decides tenure; price barely moves it</h2>
+  <p>Month-to-month accounts churn at 42.7%, one-year at 11.3%, two-year at 2.8%.
+  Median tenure on month-to-month is 35 months; neither annual contract reaches
+  50% attrition inside six years. Log-rank χ² = 2,353 across the three curves.</p>
+  <p>Once contract type and product mix are held constant, each additional dollar
+  on the monthly bill is associated with slightly <em>lower</em> churn odds — the
+  opposite of where the commercial conversation usually starts.</p>
+  <figure><img src="../assets/figures/churn/01-retention-by-contract.png" alt="Kaplan-Meier retention by contract type, with 95% intervals. Tenure is read as time on book, leavers as events and retained accounts as right-censored.">
+  <figcaption>Kaplan-Meier retention by contract type, with 95% intervals. Tenure is read as time on book, leavers as events and retained accounts as right-censored.</figcaption></figure>
+
+  <h2>Fibre is the problem product, not the premium product</h2>
+  <p>Holding contract, tenure, bill size and every attached service constant, a
+  fibre line carries <strong>4.38x</strong> the churn odds of the reference
+  customer (95% CI 2.68–7.17). It is the largest effect in the model by a wide
+  margin, and month-to-month fibre is 30% of the base but <strong>72% of all lost
+  revenue</strong>.</p>
+  <p>Attached support products pull the other way. Online security (0.78x) and
+  tech support (0.79x) both reduce churn odds significantly, which makes
+  attachment a retention lever and not only an ARPU lever.</p>
+  <figure><img src="../assets/figures/churn/03-churn-drivers.png" alt="Odds ratios from a logistic regression on 4,930 training accounts, significant terms only, with 95% Wald intervals.">
+  <figcaption>Odds ratios from a logistic regression on 4,930 training accounts, significant terms only, with 95% Wald intervals.</figcaption></figure>
+
+  <h2>The offer size matters more than the audience size</h2>
+  <p>The scoring model reaches AUC 0.836 on a 30% holdout. Its top decile churns
+  at 76.6% — 2.89x the base rate — and the top two deciles hold 56% of the lost
+  revenue while covering 20% of customers.</p>
+  <p>That precision is what makes an intervention viable, because the offer cost
+  is paid on everyone contacted while the benefit only lands on the people who
+  would otherwise have left. Even in the top two deciles, 457 of 1,409 contacts
+  were staying anyway.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Offer</th><th>Cost</th><th>Benefit</th><th>Net value</th><th>Return</th></tr></thead>
+    <tbody>
+      <tr><td>10%</td><td>$155,222</td><td>$275,432</td><td class="pos">$120,210</td><td>1.77x</td></tr>
+      <tr><td>15%</td><td>$224,379</td><td>$275,432</td><td>$51,053</td><td>1.23x</td></tr>
+      <tr><td>20%</td><td>$293,537</td><td>$275,432</td><td class="neg">−$18,104</td><td>0.94x</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout"><p class="callout-label">Recommendation</p>
+  <p>Contact the top two modelled risk deciles — 1,409 accounts — with a 10%
+  bill reduction held for twelve months, conditional on moving off month-to-month.
+  <strong>$120,210 of net contribution against $155,222 of spend, and it stays
+  positive down to a 9.5% save rate.</strong></p>
+  <p>Do not extend the discount past 10% to buy acceptance. Raising it inflates
+  the cost across all 1,409 contacts while the addressable saves stay fixed at
+  952. A 20% offer is loss-making. If budget is tight, cut depth rather than
+  generosity — the top decile alone returns 2.02x.</p></div>
+  <figure><img src="../assets/figures/churn/04-targeting-gains.png" alt="Cumulative share of lost revenue reached as the base is contacted highest-risk first.">
+  <figcaption>Cumulative share of lost revenue reached as the base is contacted highest-risk first.</figcaption></figure>
+
+
+  <p class="caveat">Save rates are modelled, not observed — the extract has no campaign history — which is why the case is anchored on the break-even rather than the assumption. Contribution margin and cost of capital are supplied from outside the data and swept; the recommendation holds anywhere above a 50% margin. Nothing here is causal: the first recommendation is to run a controlled test.</p>
+
+  <footer>
+    <p>
+      <a href="../index.html">Back to all work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a> ·
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis">Source and method</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lohan De Silva — Business and Financial Analyst</title>
+<meta name="description" content="Analytics work on retention economics, pricing, credit risk, equity profitability and clinic capacity. Every figure reproduces from the source data.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <h1>Lohan De Silva</h1>
+    <p class="role">Business Analyst · Financial Analysis · Business Intelligence</p>
+    <p class="lede">
+      I work on the part of an analysis that is usually skipped: turning a
+      finding into a decision someone can defend in a meeting. Five projects
+      below, each on public data, each ending in a recommendation with a
+      break-even attached.
+    </p>
+    <div class="contact">
+      <span>Colombo, Sri Lanka</span>
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a>
+      <a href="https://www.linkedin.com/in/lohands">LinkedIn</a>
+      <a href="https://github.com/Lohandesilva">GitHub</a>
+      <a href="cv.html">CV</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="section-label">Selected work</p>
+
+    <article class="work-item">
+      <div class="work-index">01</div>
+      <div>
+        <p class="work-domain">Subscription economics · Telecommunications</p>
+        <h2><a href="projects/customer-churn.html">Churn takes a quarter of the customers and a third of the revenue</a></h2>
+        <p class="finding">
+          The accounts that leave bill 21% more than the ones that stay, so churn
+          is a margin problem rather than a volume problem. The counter-intuitive
+          part is the fix: cutting the save offer from 15% to 10% more than
+          doubles what the retention programme is worth.
+        </p>
+        <div class="figures">
+          <div><span class="fig-value">30.5%</span><span class="fig-label">of the revenue book lost, against 26.5% of accounts</span></div>
+          <div><span class="fig-value">0.836</span><span class="fig-label">holdout AUC on the targeting model</span></div>
+          <div><span class="fig-value">$120k</span><span class="fig-label">net value of the recommended programme, 1.77x return</span></div>
+        </div>
+        <p class="stack">Python · statsmodels · Kaplan-Meier · SQL · Tableau</p>
+        <p class="links">
+          <a href="projects/customer-churn.html">Case study</a>
+          <a href="https://github.com/Lohandesilva/customer-churn-analysis">Repository</a>
+          <a href="https://github.com/Lohandesilva/customer-churn-analysis/blob/main/reports/executive-summary.md">Executive summary</a>
+        </p>
+      </div>
+    </article>
+
+    <article class="work-item">
+      <div class="work-index">02</div>
+      <div>
+        <p class="work-domain">Pricing and commercial policy · Retail</p>
+        <h2><a href="projects/sales-margin.html">Revenue grew 51%. The discount ate the margin.</a></h2>
+        <p class="finding">
+          Discounting on this book does not trade margin away smoothly — past 20%
+          it inverts it. A fifth of revenue is sold at a loss, and the objection
+          that a cap would cost volume does not survive the arithmetic: the capped
+          lines lose money as they stand.
+        </p>
+        <div class="figures">
+          <div><span class="fig-value">1.57</span><span class="fig-label">margin points lost per discount point</span></div>
+          <div><span class="fig-value">−$135k</span><span class="fig-label">booked on $363k of revenue sold above 20% off</span></div>
+          <div><span class="fig-value">+71%</span><span class="fig-label">profit recovered by a 20% discount cap</span></div>
+        </div>
+        <p class="stack">Python · SQL · profit bridge decomposition · Tableau</p>
+        <p class="links">
+          <a href="projects/sales-margin.html">Case study</a>
+          <a href="https://github.com/Lohandesilva/sales-performance-analytics">Repository</a>
+          <a href="https://github.com/Lohandesilva/sales-performance-analytics/blob/main/reports/executive-summary.md">Executive summary</a>
+        </p>
+      </div>
+    </article>
+
+    <article class="work-item">
+      <div class="work-index">03</div>
+      <div>
+        <p class="work-domain">Equity analysis · Capital markets</p>
+        <h2><a href="projects/sp500-profitability.html">Rebuilding S&amp;P 500 fundamentals from ratios alone</a></h2>
+        <p class="finding">
+          The extract has no income statement, so every fundamental is
+          reconstructed from accounting identities. Two received ideas do not
+          survive the test: sector explains only a quarter of margin variation,
+          and the market pays for size rather than for quality.
+        </p>
+        <div class="figures">
+          <div><span class="fig-value">26%</span><span class="fig-label">of margin variance explained by sector — the rest sits within them</span></div>
+          <div><span class="fig-value">R² 0.002</span><span class="fig-label">on the naive quality-versus-price relationship</span></div>
+          <div><span class="fig-value">69</span><span class="fig-label">of 285 companies priced above the growth they can fund</span></div>
+        </div>
+        <p class="stack">Python · statsmodels · variance decomposition · SQL · Tableau</p>
+        <p class="links">
+          <a href="projects/sp500-profitability.html">Case study</a>
+          <a href="https://github.com/Lohandesilva/financial-performance-analysis">Repository</a>
+          <a href="https://github.com/Lohandesilva/financial-performance-analysis/blob/main/reports/executive-summary.md">Executive summary</a>
+        </p>
+      </div>
+    </article>
+
+    <article class="work-item">
+      <div class="work-index">04</div>
+      <div>
+        <p class="work-domain">Credit risk · Consumer banking</p>
+        <h2><a href="projects/credit-risk.html">A scorecard that gives up nothing by leaving demographics out</a></h2>
+        <p class="finding">
+          Sex, education and marital status are excluded from the scorecard on
+          fair-lending grounds. The usual defence of keeping them is predictive
+          power, so I measured what the exclusion costs: three thousandths of a
+          Gini point. There is no efficiency argument left.
+        </p>
+        <div class="figures">
+          <div><span class="fig-value">0.003</span><span class="fig-label">Gini given up by excluding protected characteristics</span></div>
+          <div><span class="fig-value">0.539</span><span class="fig-label">holdout Gini on behavioural variables alone</span></div>
+          <div><span class="fig-value">51%</span><span class="fig-label">of expected credit loss sitting in 17% of exposure</span></div>
+        </div>
+        <p class="stack">Python · scorecard development · IFRS 9 ECL · roll-rate analysis · SQL</p>
+        <p class="links">
+          <a href="projects/credit-risk.html">Case study</a>
+          <a href="https://github.com/Lohandesilva/credit-portfolio-risk">Repository</a>
+          <a href="https://github.com/Lohandesilva/credit-portfolio-risk/blob/main/reports/executive-summary.md">Executive summary</a>
+        </p>
+      </div>
+    </article>
+
+    <article class="work-item">
+      <div class="work-index">05</div>
+      <div>
+        <p class="work-domain">Operations · Healthcare</p>
+        <h2><a href="projects/clinic-capacity.html">The most-quoted finding in this dataset is a confounding artefact</a></h2>
+        <p class="finding">
+          Patients who receive an SMS reminder miss more appointments — a result
+          repeated across dozens of published analyses of this data. Reminders are
+          only sent when the booking is far enough out. Hold lead time constant
+          and the sign reverses.
+        </p>
+        <div class="figures">
+          <div><span class="fig-value">1.90 → 0.77</span><span class="fig-label">SMS odds ratio, before and after controlling for lead time</span></div>
+          <div><span class="fig-value">4.6% → 33%</span><span class="fig-label">non-attendance, same-day booking versus a month out</span></div>
+          <div><span class="fig-value">23:1</span><span class="fig-label">slots recovered per patient turned away under the overbooking rule</span></div>
+        </div>
+        <p class="stack">Python · Mantel-Haenszel stratification · logistic regression · SQL · Tableau</p>
+        <p class="links">
+          <a href="projects/clinic-capacity.html">Case study</a>
+          <a href="https://github.com/Lohandesilva/healthcare-operations-analytics">Repository</a>
+          <a href="https://github.com/Lohandesilva/healthcare-operations-analytics/blob/main/reports/executive-summary.md">Executive summary</a>
+        </p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="section-label">How the work is put together</p>
+    <div class="narrow">
+      <p>
+        Every project ends in a recommendation, and every recommendation is
+        anchored on a break-even rather than a point estimate. The point estimate
+        depends on an assumption someone in the room will disagree with; the
+        break-even tells them how wrong they would have to be for the decision to
+        change.
+      </p>
+      <p>
+        Assumptions that are not observable in the data — contribution margin,
+        cost of capital, loss given default, cost per unattended slot — live in one
+        configuration file per project, with a stated basis, and are swept across a
+        range. No conclusion in any of these projects rests on a single value for
+        a number I could not measure.
+      </p>
+      <p>
+        Nothing is typed by hand. Each repository writes a <code>metrics.json</code>
+        and every figure quoted in its README, executive summary and on this site
+        is read from it. Running <code>make analysis</code> regenerates the whole
+        report pack from the raw source file.
+      </p>
+      <p>
+        Where a result is dull or contradicts the expected story, it is reported
+        as it is. Two of the five projects turn on a null finding.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="section-label">Background</p>
+    <dl class="record">
+      <dt>2026 —</dt>
+      <dd><strong>Operations Lead</strong>, Sentra Technologies<span>Requirements, process analysis and delivery across client implementations</span></dd>
+      <dt>2025 – 2026</dt>
+      <dd><strong>Executive</strong>, Codegen International<span>Enterprise discovery, solution design and executive demonstrations</span></dd>
+      <dt>2023 – 2024</dt>
+      <dd><strong>Business Development Associate</strong>, HSBC<span>Consumer banking portfolio acquisition and campaign analytics</span></dd>
+      <dt>2022 – 2023</dt>
+      <dd><strong>Lead Generation Executive</strong>, Havelock Asia<span>B2B market research and pipeline analysis</span></dd>
+      <dt>Education</dt>
+      <dd><strong>MSc Data Science</strong>, University of Central Lancashire<span>In progress</span></dd>
+      <dt></dt>
+      <dd><strong>BSc Business Administration</strong>, Queen Margaret University<span>International Business · Upper second-class honours</span></dd>
+      <dt>Certification</dt>
+      <dd><strong>IBM Data Analytics Professional Certificate</strong><span>Institute of Bankers of Sri Lanka qualification, 2024</span></dd>
+    </dl>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a> ·
+      <a href="https://www.linkedin.com/in/lohands">linkedin.com/in/lohands</a> ·
+      <a href="https://github.com/Lohandesilva">github.com/Lohandesilva</a>
+    </p>
+    <p>All analysis on public data. Source and method in each repository.</p>
+  </div>
+</footer>
+
+</body>
+</html>

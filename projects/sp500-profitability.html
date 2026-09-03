@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S&amp;P 500 profitability and valuation — Lohan De Silva</title>
+<meta name="description" content="503 S&P 500 constituents: fundamentals reconstructed from accounting identities, a variance decomposition on margin, and a funding-gap screen.">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="project-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <p class="work-domain">Equity analysis · Capital markets</p>
+    <h1>Rebuilding index fundamentals from ratios alone</h1>
+    <p class="lede">An extract with no income statement and no balance sheet. Every fundamental here is reconstructed from accounting identities — and two received ideas do not survive the test.</p>
+    <p class="links">
+      <a href="https://github.com/Lohandesilva/financial-performance-analysis">Repository</a>
+      <a href="https://github.com/Lohandesilva/financial-performance-analysis/blob/main/reports/executive-summary.md">Executive summary</a>
+      <a href="https://github.com/Lohandesilva/financial-performance-analysis/blob/main/reports/technical-appendix.md">Technical appendix</a>
+    </p>
+  </header>
+
+  <div class="keyfigs">
+    <div><span class="fig-value">26%</span><span class="fig-label">of EBITDA margin variance explained by sector</span></div>
+    <div><span class="fig-value">R² 0.002</span><span class="fig-label">on the naive quality-versus-price relationship</span></div>
+    <div><span class="fig-value">69 of 285</span><span class="fig-label">companies priced above the growth they can fund</span></div>
+    <div><span class="fig-value">$4.24tn</span><span class="fig-label">of index capitalisation in that funding deficit</span></div>
+  </div>
+
+
+  <h2>The reconstruction</h2>
+  <p>The extract carries prices and multiples but no statements. Revenue, net
+  income, return on equity and payout are all recoverable from identities:</p>
+  <ul>
+    <li>Revenue = market cap ÷ price-to-sales</li>
+    <li>Net income = earnings per share × shares outstanding</li>
+    <li><strong>ROE = (P/B) ÷ (P/E)</strong>, since (P/B) × (E/P) = E/B</li>
+    <li><strong>Payout = dividend yield × (P/E)</strong>, since (D/P) × (P/E) = D/E</li>
+    <li>Sustainable growth = ROE × (1 − payout)</li>
+  </ul>
+  <p>The algebra is implemented twice — once in Python and again in SQL — so the
+  two paths can be reconciled against each other.</p>
+
+  <h2>Sector explains far less of margin than the medians suggest</h2>
+  <p>Sector medians span 43 points of EBITDA margin, which reads as though
+  industry determines profitability. A one-way analysis of variance puts the
+  actual figure at <strong>η² = 0.261</strong> (F = 15.7, p &lt; 0.001, n = 455).
+  Seventy-four per cent of the variation sits <em>within</em> sectors.</p>
+  <p>Strip out Financials and Real Estate — whose "margins" are interest and rent
+  and are not comparable — and it falls to 0.149. At sub-industry level it reaches
+  0.587, which is where the real grouping is.</p>
+  <figure><img src="../assets/figures/sp500/01-margin-dispersion-by-sector.png" alt="EBITDA margin distribution by sector. The within-sector spread is the finding.">
+  <figcaption>EBITDA margin distribution by sector. The within-sector spread is the finding.</figcaption></figure>
+
+  <h2>The market pays for size, not for margin</h2>
+  <p>Regressing log P/E on EBITDA margin and log market cap: margin
+  <strong>−0.607</strong> (p = 0.002), size <strong>+0.144</strong> (p &lt; 0.001),
+  R² = 0.091. Higher-margin companies trade on <em>lower</em> multiples once size
+  is controlled for.</p>
+  <p>The naive specification — earnings yield on ROE — returns R² = 0.002. That is
+  a genuine null and it is reported as one. The reason is mechanical and worth
+  stating: ROE = (P/B) ÷ (P/E) and net margin = (E/P) × (P/S) are both
+  rearrangements of the multiples, so regressing one on the other is closer to an
+  identity check than to a test. EBITDA margin is the only price-free measure of
+  quality in the file.</p>
+  <figure><img src="../assets/figures/sp500/02-quality-versus-price.png" alt="Valuation against margin, with the fitted relationship and the largest residuals labelled.">
+  <figcaption>Valuation against margin, with the fitted relationship and the largest residuals labelled.</figcaption></figure>
+
+  <h2>Where the book multiple comes from</h2>
+  <p>log(P/B) = log(ROE) + log(P/E) exactly. Decomposing the variance:
+  <strong>91% is variance in ROE</strong>, 53% is valuation, and −44% is
+  covariance between them — the market marks down the multiple on high-return
+  companies, with corr(log ROE, log P/E) = −0.32.</p>
+  <figure><img src="../assets/figures/sp500/03-book-multiple-decomposition.png" alt="Variance decomposition of the price-to-book multiple into return on equity, valuation and their covariance.">
+  <figcaption>Variance decomposition of the price-to-book multiple into return on equity, valuation and their covariance.</figcaption></figure>
+
+  <h2>The funding-gap screen</h2>
+  <p>Comparing what each company can grow at from retained earnings against what
+  its multiple implies the market is pricing in: <strong>69 of 285 screened
+  companies are priced above what they can fund</strong> — $4.24tn, 6.4% of index
+  capitalisation. The deficit group pays out a median 66% of earnings on a median
+  8.8% ROE; the surplus group pays 22% on 21.2%. Twenty-one of the 29 screened
+  utilities are on the list, which is what you would expect from a regulated
+  sector and is a useful check that the screen is behaving.</p>
+  <div class="callout"><p class="callout-label">What this is for</p>
+  <p>The screen is a starting list, not a conclusion. A company can be priced
+  above its self-funded growth rate for good reasons — a credible acquisition
+  programme, a deliberate leverage step, a payout it intends to cut. What the
+  screen does is put the 69 names where that argument has to be made explicitly,
+  and quantify what is riding on it.</p></div>
+
+
+  <p class="caveat">The file is an undated point-in-time snapshot with no as-of column, and the publisher overwrites it in place; 17 constituents carry no market data at all, several of them names that have left the index, so the roster and the price vector were struck at different times. Twenty-eight loss-making companies have no P/E and drop out, which biases the retained sample toward profitability. Both are stated rather than corrected.</p>
+
+  <footer>
+    <p>
+      <a href="../index.html">Back to all work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a> ·
+      <a href="https://github.com/Lohandesilva/financial-performance-analysis">Source and method</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

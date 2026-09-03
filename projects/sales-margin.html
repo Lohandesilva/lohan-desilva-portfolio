@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales performance and the cost of discounting — Lohan De Silva</title>
+<meta name="description" content="A four-year order book read for why margin stopped following revenue: the discount cliff, a profit bridge, and a cap worth 71% of company profit.">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="project-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <p class="work-domain">Pricing and commercial policy · Retail</p>
+    <h1>Revenue grew 51%. The discount ate the margin.</h1>
+    <p class="lede">A four-year order book — 9,994 lines, $2.30M of revenue — read for the question the growth numbers hide: the business is growing, so why is margin not?</p>
+    <p class="links">
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics">Repository</a>
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics/blob/main/reports/executive-summary.md">Executive summary</a>
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics/blob/main/reports/technical-appendix.md">Technical appendix</a>
+    </p>
+  </header>
+
+  <div class="keyfigs">
+    <div><span class="fig-value">$566,734</span><span class="fig-label">given away in discount — 19.8% of list value</span></div>
+    <div><span class="fig-value">1.57</span><span class="fig-label">margin points lost per discount point</span></div>
+    <div><span class="fig-value">−$135,376</span><span class="fig-label">booked on $362,770 sold above a 20% discount</span></div>
+    <div><span class="fig-value">+71%</span><span class="fig-label">profit recovered by capping the discount at 20%</span></div>
+  </div>
+
+
+  <h2>The source file is three worksheets</h2>
+  <p>The published CSV is 10,800 rows. The first 9,994 are order lines; the rest
+  are the workbook's People and Returns sheets written underneath, each introduced
+  by a header sitting in the first two columns of an otherwise blank row. Read
+  naively this looks like 806 rows of missing data and gets dropped.</p>
+  <p>Parsing the blocks out recovers <strong>800 return records covering 296
+  orders</strong> — a table the standard read of this dataset discards, and one
+  that turns out to decide whether the main recommendation is safe.</p>
+
+  <h2>Growth was bought, not earned</h2>
+  <p>Revenue rose from $484,247 to $733,215, a 14.8% compound rate. Margin went
+  10.2% → 13.1% → 13.4% → 12.7%: it improved for two years and then gave back a
+  third of the gain. The discount rate tracks it exactly.</p>
+  <figure><img src="../assets/figures/sales/01-growth-versus-margin.png" alt="Revenue and margin as separate panels. A dual axis here would invite the exact misreading the chart exists to prevent.">
+  <figcaption>Revenue and margin as separate panels. A dual axis here would invite the exact misreading the chart exists to prevent.</figcaption></figure>
+  <p>The 2017–2018 bridge makes the mechanism explicit. Profit rose $11,644 — the
+  net of a <strong>$16,650 volume gain and a $13,545 discount give-back</strong>.
+  Higher discounting consumed 81% of what the extra revenue earned.</p>
+  <figure><img src="../assets/figures/sales/04-profit-bridge.png" alt="Sequential bridge. Volume is valued at last year's margin; mix and execution is the unexplained residual, reported rather than absorbed.">
+  <figcaption>Sequential bridge. Volume is valued at last year's margin; mix and execution is the unexplained residual, reported rather than absorbed.</figcaption></figure>
+
+  <h2>Discounting has a cliff, not a slope</h2>
+  <p>Lines sold at list carry a 29.5% margin. At 16–20% discount, 11.8%. At
+  21–30%, <strong>−10.0%</strong> — and 91.6% of the lines in that band lose money
+  individually. Past 40%, every single line loses money. At 71% and above the
+  margin is −180%: the business pays $1.80 for every dollar it books.</p>
+  <figure><img src="../assets/figures/sales/02-discount-cliff.png" alt="Aggregate margin at each discount level the business issues, sized by revenue at that level. Both the empirical crossing and a revenue-weighted fit put the break-even near 20%.">
+  <figcaption>Aggregate margin at each discount level the business issues, sized by revenue at that level. Both the empirical crossing and a revenue-weighted fit put the break-even near 20%.</figcaption></figure>
+
+  <h2>The regional gap is a policy gap, not a selling gap</h2>
+  <p>Central runs 4.6 margin points below the company. The instinct is to look at
+  the sales team. Decomposing the gap into what the region's own discount mix
+  explains and what it does not: <strong>5.3 of those points are the discount
+  Central is giving</strong> — 24.0% on average, against 10.9% in West — and its
+  execution is 0.8 points <em>better</em> than the discounts would predict.</p>
+  <figure><img src="../assets/figures/sales/05-margin-variance.png" alt="Each region's margin gap against the company average, split into the part its discount mix explains and the part it does not.">
+  <figcaption>Each region's margin gap against the company average, split into the part its discount mix explains and the part it does not.</figcaption></figure>
+
+  <h2>Returns do not rise with discount</h2>
+  <p>The obvious objection to a margin curve like this is that it understates the
+  problem: if deeply discounted goods also come back more often, discounting costs
+  more than the P&amp;L shows. It does not. Lines on returned orders carry a
+  <strong>14.3% average discount against 15.7% on lines that were kept</strong>,
+  and the rank correlation between discount and return is −0.019 (p = 0.052).</p>
+  <p>A null result, and a useful one: the margin curve can be taken at face value.</p>
+  <div class="callout"><p class="callout-label">Recommendation</p>
+  <p>Cap the line-level discount at 20% and route anything deeper through a
+  named approver. 1,393 lines — 13.9% of the book, $362,770 of revenue — sit above
+  that cap and lose $135,376 between them. Repriced at 20%, the same list value
+  earns $68,759: a <strong>$204,135 swing, a 71% increase on total company
+  profit, from 14% of the order lines</strong>.</p>
+  <p>The usual counter is that some of that revenue walks away. Here that does not
+  survive the arithmetic — the capped lines lose money as they stand, so revenue
+  walking away is itself a gain. There is no walk-away rate at which the cap stops
+  paying.</p></div>
+
+
+  <p class="caveat">The cap counterfactual holds volume constant. It has to — there is no price test, no quote-to-order data and no lost-deal record anywhere in the file — which is why the recommendation is argued on the walk-away logic rather than on the $204,135. Four years of one retailer, ending 2018: the mechanism generalises, the 20% break-even does not.</p>
+
+  <footer>
+    <p>
+      <a href="../index.html">Back to all work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a> ·
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics">Source and method</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit portfolio risk and the limit decision — Lohan De Silva</title>
+<meta name="description" content="A 30,000-account credit card book: roll rates, a behavioural scorecard built without protected characteristics, IFRS 9 expected loss and a limit-cut decision.">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="project-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <p class="work-domain">Credit risk · Consumer banking</p>
+    <h1>A scorecard that gives up nothing by leaving demographics out</h1>
+    <p class="lede">A 30,000-account credit card book — NT$5.02bn of committed limits against NT$1.54bn drawn — read for where the delinquency is going, what it is worth in expected loss, and which credit lines stop paying for themselves.</p>
+    <p class="links">
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk">Repository</a>
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk/blob/main/reports/executive-summary.md">Executive summary</a>
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk/blob/main/reports/technical-appendix.md">Technical appendix</a>
+    </p>
+  </header>
+
+  <div class="keyfigs">
+    <div><span class="fig-value">0.003</span><span class="fig-label">Gini given up by excluding protected characteristics</span></div>
+    <div><span class="fig-value">0.539</span><span class="fig-label">holdout Gini on behavioural variables alone</span></div>
+    <div><span class="fig-value">51%</span><span class="fig-label">of expected credit loss in 17% of exposure</span></div>
+    <div><span class="fig-value">1.64%</span><span class="fig-label">probability of default at which a limit cut breaks even</span></div>
+  </div>
+
+
+  <h2>The fair-lending decision, and what it costs</h2>
+  <p>Sex, education and marital status are excluded from the scorecard. That is a
+  conduct decision, not a modelling one, and it is usually argued against on the
+  grounds that the bank gives up predictive power.</p>
+  <p>So I measured it. Fitting the same model with those fields included and
+  comparing on the same holdout: the exclusion costs <strong>0.003 of Gini</strong>
+  — 0.5388 against 0.5418. Three of the four demographic fields fail the standard
+  information-value screen outright before they reach the model.</p>
+  <p>There is no efficiency argument left. A scorecard built on behaviour alone
+  performs indistinguishably from one that uses who the customer is.</p>
+  <figure><img src="../assets/figures/credit/07-fair-lending-cost.png" alt="Discrimination with and without protected characteristics, on the same holdout sample.">
+  <figcaption>Discrimination with and without protected characteristics, on the same holdout sample.</figcaption></figure>
+
+  <h2>Delinquency escalates, and cures are rarer than rolls</h2>
+  <p>Across consecutive months the pooled roll-forward rate — current to one cycle
+  past due — is <strong>4.9%</strong>, and it rises from 3.2% in the earliest
+  month observed to 5.8% in the latest. The pooled cure rate is 28.2%.</p>
+  <p>Default probability escalates sharply with the delinquency bucket an account
+  is sitting in, which is what makes the state variable the strongest single input
+  to the scorecard and the natural basis for the staging in the loss model.</p>
+  <figure><img src="../assets/figures/credit/01-delinquency-escalation.png" alt="Default rate by current delinquency bucket.">
+  <figcaption>Default rate by current delinquency bucket.</figcaption></figure>
+
+  <h2>The scorecard</h2>
+  <p>Logistic regression on behavioural variables only: repayment status history,
+  utilisation, payment ratios, limit and bill trajectory. <strong>AUC 0.769, Gini
+  0.539, KS 0.414</strong> on a 9,000-account holdout, against 0.775 in sample.</p>
+  <p>Discrimination is not the whole test. A scorecard that ranks well but is
+  poorly calibrated cannot be used for provisioning, because the expected loss
+  numbers it produces will be wrong even where the ranking is right. Seven of the
+  score bands sit within two standard errors of their observed default rate, with
+  a largest gap of 2.8 percentage points.</p>
+  <figure><img src="../assets/figures/credit/04-calibration.png" alt="Predicted against observed default rate by score band, on the holdout sample.">
+  <figcaption>Predicted against observed default rate by score band, on the holdout sample.</figcaption></figure>
+
+  <h2>Where the expected loss actually sits</h2>
+  <p>Expected credit loss is PD × LGD × EAD, in an IFRS 9 frame. The
+  concentration is what matters for action: <strong>51% of the expected loss sits
+  in the worst two score bands, which carry 17% of exposure</strong>.</p>
+  <figure><img src="../assets/figures/credit/05-ecl-concentration.png" alt="Expected credit loss and exposure at default by score band.">
+  <figcaption>Expected credit loss and exposure at default by score band.</figcaption></figure>
+  <div class="callout"><p class="callout-label">Recommendation</p>
+  <p>The limit-cut decision reduces to a single probability threshold. On the
+  base case, cutting an undrawn line pays for itself above a <strong>1.64%
+  probability of default</strong>; on the most adverse revenue assumption tested,
+  above 3.11%. Both thresholds sit far below the default rate in the worst score
+  bands, so the decision is not close for those accounts.</p>
+  <p>Cut the top three bands. The value-maximising depth is deeper than that, but
+  the marginal bands trade a large increase in customers affected for a small
+  increase in loss avoided, and the customer cost of a limit cut is not in this
+  data.</p></div>
+
+
+  <p class="caveat">Loss given default is an assumption, not an observation — the file has no recovery data — so it is stated in configuration and swept rather than argued for. The book is 2005 Taiwanese and six months long: the roll rates are a snapshot of one point in one credit cycle in one jurisdiction, and nothing here should be carried to another market without re-estimation.</p>
+
+  <footer>
+    <p>
+      <a href="../index.html">Back to all work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a> ·
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk">Source and method</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

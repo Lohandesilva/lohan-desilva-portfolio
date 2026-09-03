@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outpatient non-attendance and clinic capacity — Lohan De Silva</title>
+<meta name="description" content="110,521 outpatient appointments: the SMS reminder paradox resolved by stratification, a leakage-safe behaviour model, and an overbooking rule.">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="project-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <p class="work-domain">Operations · Healthcare</p>
+    <h1>The most-quoted finding in this dataset is a confounding artefact</h1>
+    <p class="lede">110,521 public outpatient appointments, read for how much capacity non-attendance takes, what actually predicts it, and what a service manager can do about it on Monday.</p>
+    <p class="links">
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics">Repository</a>
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics/blob/main/reports/executive-summary.md">Executive summary</a>
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics/blob/main/reports/technical-appendix.md">Technical appendix</a>
+    </p>
+  </header>
+
+  <div class="keyfigs">
+    <div><span class="fig-value">20.2%</span><span class="fig-label">of appointments not attended — 20 points of slot utilisation</span></div>
+    <div><span class="fig-value">1.90 → 0.77</span><span class="fig-label">SMS odds ratio, before and after controlling for lead time</span></div>
+    <div><span class="fig-value">4.6% → 33%</span><span class="fig-label">non-attendance, same-day booking versus a month out</span></div>
+    <div><span class="fig-value">23:1</span><span class="fig-label">slots recovered per patient turned away, under the overbooking rule</span></div>
+  </div>
+
+
+  <h2>The scale of it</h2>
+  <p>Of 110,521 appointments across 27 clinic days, <strong>22,314 were not
+  attended</strong> — 20.2%, or 826 unused slots every clinic day. Slot
+  utilisation runs at 79.8%. Over the six-week window that is 5.4 clinic days of
+  capacity simply gone.</p>
+
+  <h2>Lead time is the lever</h2>
+  <p>Same-day bookings are missed 4.6% of the time. Next-day bookings, 21.4% — a
+  4.6x step in twenty-four hours. Beyond a month the rate plateaus around 33%.</p>
+  <p>The distributional consequence is the operational one: same-day bookings are
+  35% of the book but only 8% of the leakage, while appointments booked more than
+  a week out are 36% of the book and <strong>57% of everything lost</strong>.</p>
+  <figure><img src="../assets/figures/clinic/01-lead-time-curve.png" alt="Non-attendance against days between booking and appointment, with the booking volume behind each point.">
+  <figcaption>Non-attendance against days between booking and appointment, with the booking volume behind each point.</figcaption></figure>
+
+  <h2>The SMS paradox</h2>
+  <p>In the raw data, patients who received an SMS reminder missed appointments
+  more often than those who did not: 27.6% against 16.7%, an odds ratio of
+  <strong>1.90</strong>. This result is repeated across dozens of published
+  analyses of this dataset, usually with some speculation about reminder fatigue.</p>
+  <p>It is an artefact of who gets sent one. SMS coverage is <strong>0% on
+  same-day bookings</strong>, 6% at one to three days, and around 60% beyond a
+  week. Median lead time is 14 days in the SMS arm and 0 in the no-SMS arm — 51%
+  of which is same-day bookings, the group that almost never misses.</p>
+  <p>Stratify by lead time and the sign reverses. Within every band SMS is
+  favourable. A Mantel-Haenszel estimate across 105 exact lead-day strata gives
+  <strong>OR 0.769 (0.742–0.797)</strong>. A nested logistic model tells the same
+  story: 1.899 falls to 0.789 on adding lead time alone, and to 0.790 after eight
+  further covariates. One confounder does all of the work.</p>
+  <figure><img src="../assets/figures/clinic/02-sms-paradox.png" alt="The naive comparison against the lead-time-stratified one. The empty same-day SMS arm is not a gap in the table; it is the evidence.">
+  <figcaption>The naive comparison against the lead-time-stratified one. The empty same-day SMS arm is not a gap in the table; it is the evidence.</figcaption></figure>
+
+  <h2>Prior behaviour, without leaking the answer</h2>
+  <p>Patients recur in this data, so history is available — but it has to be built
+  from appointments strictly earlier than the one being predicted, ordered by
+  booking time. Built naively it leaks the target and the model looks far better
+  than it is.</p>
+  <p>Constructed safely: patients who have never missed run at 15.2%; one prior
+  miss, 25.1%; two, 27.0%; three or more, <strong>38.0%</strong>. It is the
+  largest term in the model at an odds ratio of 2.83.</p>
+  <figure><img src="../assets/figures/clinic/03-prior-behaviour.png" alt="Non-attendance by number of prior missed appointments, using an expanding count shifted by one.">
+  <figcaption>Non-attendance by number of prior missed appointments, using an expanding count shifted by one.</figcaption></figure>
+
+  <h2>Overbooking, with the arrival assumption tested</h2>
+  <p>The marginal overbooking rule is P(fill) &lt; 1/(1+M), and the unit cost
+  cancels out of it. The standard derivation assumes binomial arrivals; that
+  assumption is testable here and it fails — session counts are twice as dispersed
+  as binomial, 1.62x after modelling. The published rule takes the haircut.</p>
+  <p>On a typical 63-slot session at 80% attendance that is <strong>+11
+  bookings</strong>, 8.3 slots recovered against 0.46 expected overflow, and
+  utilisation moving from 80% to 93%. Across the portfolio: 14,874 slots recovered
+  against 658 expected overflow — a <strong>23:1 ratio</strong> — worth BRL 5.37M
+  a year at the stated slot cost.</p>
+  <figure><img src="../assets/figures/clinic/05-overbooking-frontier.png" alt="Recovered capacity against expected overflow as the overbooking depth increases.">
+  <figcaption>Recovered capacity against expected overflow as the overbooking depth increases.</figcaption></figure>
+  <div class="callout"><p class="callout-label">Recommendation</p>
+  <p>Overbook to the marginal rule, and shorten lead times second. This is not
+  the ordering I expected: lead-time compression is the cleaner intervention and
+  it recovers 3,145 slots (BRL 1.31M a year), roughly a quarter of what
+  overbooking is worth.</p>
+  <p>They are sequenced rather than alternatives. Lead times cannot be shortened
+  without near-term capacity to shorten them into, and overbooking is what creates
+  that capacity. The ranking is invariant to the cost-per-slot assumption across
+  the whole range swept.</p></div>
+
+
+  <p class="caveat">Six weeks of one Brazilian public health service in 2016. Capacity is inferred from the booked list, so rostered-but-unbooked slots are invisible and true utilisation may be worse. The overbooking case rests on unmet demand the data cannot verify — roughly 725 extra patients per clinic day would have to exist — and that is the largest risk to the recommendation, stated as such in the memo.</p>
+
+  <footer>
+    <p>
+      <a href="../index.html">Back to all work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a> ·
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics">Source and method</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

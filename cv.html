@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curriculum Vitae — Lohan De Silva</title>
+<meta name="description" content="Business analyst. Retention economics, pricing policy, credit risk, equity profitability and operational capacity.">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .cv h2 { font-size: 1.35rem; margin: 2.8rem 0 0.2rem; }
+  .cv .entry { margin: 1.6rem 0 0; }
+  .cv .entry-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 1rem; align-items: baseline; max-width: 46rem; }
+  .cv .entry-head h3 { margin: 0; font-family: var(--sans); font-size: 1rem; font-weight: 600; }
+  .cv .entry-head .org { font-weight: 400; color: var(--ink-2); }
+  .cv .dates { font-size: 0.85rem; color: var(--ink-3); white-space: nowrap; }
+  .cv .meta { font-size: 0.82rem; color: var(--ink-3); margin: 0.15rem 0 0.5rem; max-width: none; }
+  .cv ul { margin: 0.4rem 0 0; max-width: 46rem; }
+  .cv li { margin-bottom: 0.35rem; font-size: 0.95rem; line-height: 1.55; }
+  .cv .skills dt { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+  .cv .skills { grid-template-columns: 11rem 1fr; max-width: 48rem; }
+  .cv .skills dd { font-size: 0.95rem; margin-bottom: 0.7rem; }
+  .download { display: inline-block; font-size: 0.9rem; border: 1px solid var(--rule-strong); padding: 0.5rem 1rem; border-bottom: 1px solid var(--rule-strong); }
+  .download:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap cv">
+  <header class="project-head">
+    <a class="backlink" href="index.html">&larr; Lohan De Silva</a>
+    <h1>Curriculum Vitae</h1>
+    <p class="lede">Business analyst working in retention economics, pricing policy, credit risk,
+    equity profitability and operational capacity.</p>
+    <p><a class="download" href="assets/Lohan_De_Silva_CV.pdf">Download as PDF</a></p>
+    <div class="contact" style="border-top:none;padding-top:1.4rem">
+      <span>Colombo, Sri Lanka</span>
+      <span>+94 70 466 9834</span>
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a>
+      <a href="https://www.linkedin.com/in/lohands">linkedin.com/in/lohands</a>
+      <a href="https://github.com/Lohandesilva">github.com/Lohandesilva</a>
+    </div>
+  </header>
+
+  <h2>Professional summary</h2>
+  <p>Business analyst with three years across enterprise technology, financial services and business
+  development, working primarily in quantitative analysis. Builds analyses that end in a decision:
+  five published projects spanning retention economics, pricing policy, credit risk, equity
+  profitability and operational capacity, each carried through to a recommendation with a stated
+  break-even and a fully reproducible pipeline. Comfortable owning a problem from requirements
+  through SQL and Python to the dashboard and the memo that goes with it.</p>
+
+  <h2>Technical skills</h2>
+  <dl class="record skills">
+    <dt>Analysis</dt>
+    <dd>Python (pandas, NumPy, statsmodels, scikit-learn), SQL (PostgreSQL, MySQL), advanced Excel</dd>
+    <dt>Methods</dt>
+    <dd>Survival analysis, logistic regression and scorecard development, variance decomposition,
+    profit bridging, stratified confounding analysis, sensitivity and break-even modelling</dd>
+    <dt>Business intelligence</dt>
+    <dd>Tableau, Power BI, Power Query, DAX, dashboard design and measure specification</dd>
+    <dt>Engineering</dt>
+    <dd>Git and GitHub, reproducible pipelines, Jupyter, Matplotlib, Plotly, data quality assertion</dd>
+    <dt>Business</dt>
+    <dd>Requirements gathering, stakeholder management, process analysis, KPI definition, executive reporting</dd>
+  </dl>
+
+  <h2>Analytics projects</h2>
+
+  <div class="entry">
+    <div class="entry-head"><h3>Customer Churn and Retention Economics</h3></div>
+    <p class="meta">Python · SQL · Tableau · <a href="https://github.com/Lohandesilva/customer-churn-analysis">github.com/Lohandesilva/customer-churn-analysis</a></p>
+    <ul>
+      <li>Quantified <strong>$1.67M of annualised revenue at risk</strong> on a 7,043-account book, establishing that churn took 30.5% of revenue against 26.5% of accounts because leavers billed 21% more than customers who stayed.</li>
+      <li>Estimated Kaplan-Meier retention curves by contract type (log-rank χ² = 2,353, p &lt; 0.001) and isolated fibre broadband as the largest driver at <strong>4.38x churn odds</strong> (95% CI 2.68–7.17) after controlling for tenure, bill size and product mix.</li>
+      <li>Built a logistic targeting model reaching <strong>0.836 AUC on holdout</strong>; its top two deciles captured 56% of lost revenue from 20% of the customer base.</li>
+      <li>Recommended a 10% retention offer over the default 15% after showing the smaller offer <strong>more than doubled net value to $120,210</strong> at a 1.77x return, against a 9.5% break-even save rate.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head"><h3>Sales Performance and Discount Policy</h3></div>
+    <p class="meta">Python · SQL · Tableau · <a href="https://github.com/Lohandesilva/sales-performance-analytics">github.com/Lohandesilva/sales-performance-analytics</a></p>
+    <ul>
+      <li>Recovered a <strong>returns table of 800 records</strong> that the standard read of the source file discards, by parsing three concatenated worksheets, then used it to test and rule out returns as a hidden cost of discounting.</li>
+      <li>Measured the discount-to-margin relationship at <strong>1.57 margin points lost per discount point</strong> (R² = 0.858, p &lt; 0.001), locating the break-even at 20% and showing that 91.6% of lines discounted 21–30% lose money individually.</li>
+      <li>Decomposed the year-on-year profit movement into volume (+$16,650) and discount (−$13,545), demonstrating that <strong>higher discounting consumed 81% of the gain from revenue growth</strong>.</li>
+      <li>Quantified a 20% discount cap at <strong>$204,135 of recovered profit, a 71% increase</strong>, and separated 5.3 points of the worst-performing region's margin gap as discount policy rather than sales execution.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head"><h3>S&amp;P 500 Profitability and Valuation</h3></div>
+    <p class="meta">Python · SQL · Tableau · <a href="https://github.com/Lohandesilva/financial-performance-analysis">github.com/Lohandesilva/financial-performance-analysis</a></p>
+    <ul>
+      <li>Reconstructed revenue, net income, return on equity and payout for <strong>503 index constituents from accounting identities alone</strong>, the source extract carrying no income statement or balance sheet; implemented the derivations in both Python and SQL and reconciled them.</li>
+      <li>Tested the assumption that industry determines profitability: sector explains <strong>26% of EBITDA-margin variance</strong> (η² = 0.261, F = 15.7, p &lt; 0.001), with 74% sitting within sectors and the real grouping only recovered at sub-industry level.</li>
+      <li>Found the market prices size rather than quality — margin coefficient −0.607 (p = 0.002) against size +0.144 (p &lt; 0.001) — and reported the naive quality-versus-price specification as the null it is.</li>
+      <li>Screened 285 companies against self-funded growth, flagging <strong>69 companies ($4.24tn, 6.4% of index capitalisation)</strong> priced above what they can fund, on a median 66% payout and 8.8% return on equity.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head"><h3>Credit Portfolio Risk and Provisioning</h3></div>
+    <p class="meta">Python · SQL · Tableau · <a href="https://github.com/Lohandesilva/credit-portfolio-risk">github.com/Lohandesilva/credit-portfolio-risk</a></p>
+    <ul>
+      <li>Built a behavioural probability-of-default scorecard on a <strong>30,000-account, NT$5.02bn book</strong> excluding sex, education and marital status on fair-lending grounds, then measured the cost of that exclusion at <strong>0.003 of Gini</strong> — removing the efficiency argument for using them.</li>
+      <li>Achieved <strong>0.539 Gini and 0.414 KS on holdout</strong> and validated calibration by score band, on the basis that a well-ranked but poorly calibrated scorecard cannot support provisioning.</li>
+      <li>Constructed delinquency roll-rate matrices across six monthly cycles (4.9% pooled roll-forward, 28.2% cure) and an IFRS 9 expected-loss model showing <strong>51% of expected loss concentrated in 17% of exposure</strong>.</li>
+      <li>Reduced the credit-limit decision to a single break-even default probability (<strong>1.64% base case, 3.11% adverse</strong>) and recommended a shallower cut than the value-maximising depth, on customer-cost grounds the data could not price.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head"><h3>Clinic Capacity and Non-Attendance</h3></div>
+    <p class="meta">Python · SQL · Tableau · <a href="https://github.com/Lohandesilva/healthcare-operations-analytics">github.com/Lohandesilva/healthcare-operations-analytics</a></p>
+    <ul>
+      <li>Analysed <strong>110,521 outpatient appointments</strong>, quantifying 20.2% non-attendance as 20 points of slot utilisation and 5.4 clinic days of capacity lost over a six-week window.</li>
+      <li>Overturned the dataset's most-cited result by showing the adverse SMS-reminder effect (OR 1.90) is confounded by booking lead time; Mantel-Haenszel stratification across 105 exact lead-day strata <strong>reverses it to OR 0.769</strong> (0.742–0.797).</li>
+      <li>Built a leakage-safe prior-attendance feature from an expanding count ordered by booking time — the strongest term in the model at OR 2.83 — reaching 0.729 AUC with calibration within one point in every decile.</li>
+      <li>Tested and rejected the binomial arrival assumption behind the standard overbooking rule (2.0x overdispersion), publishing the corrected version: <strong>14,874 slots recovered against 658 expected overflow, a 23:1 ratio</strong>.</li>
+    </ul>
+  </div>
+
+  <h2>Professional experience</h2>
+
+  <div class="entry">
+    <div class="entry-head">
+      <h3>Operations Lead <span class="org">· Sentra Technologies</span></h3>
+      <span class="dates">February 2026 – Present</span>
+    </div>
+    <ul>
+      <li>Own requirements gathering across client implementations, translating operational needs into functional specifications the engineering team builds against.</li>
+      <li>Analyse client processes to identify automation opportunities and build the operational case before development work is committed.</li>
+      <li>Coordinate delivery across product, engineering and implementation, maintaining the project documentation and workflow specifications the engagements run on.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head">
+      <h3>Executive <span class="org">· Codegen International</span></h3>
+      <span class="dates">June 2025 – February 2026</span>
+    </div>
+    <ul>
+      <li>Ran discovery workshops with enterprise clients to establish business problems and technical requirements ahead of solution design.</li>
+      <li>Converted commercial requirements into functional specifications with engineering, and presented solutions to both technical and executive audiences.</li>
+      <li>Managed concurrent client engagements from first meeting through to implementation.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head">
+      <h3>Business Development Associate <span class="org">· HSBC</span></h3>
+      <span class="dates">December 2023 – August 2024</span>
+    </div>
+    <ul>
+      <li>Managed customer acquisition for the consumer banking portfolio across an assigned territory, consistently meeting or exceeding assigned targets.</li>
+      <li>Used CRM and customer analytics to refine acquisition targeting and improve campaign effectiveness.</li>
+      <li>Worked with merchant partners on promotional initiatives supporting portfolio growth, within the bank's regulatory and conduct requirements.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="entry-head">
+      <h3>Lead Generation Executive <span class="org">· Havelock Asia</span></h3>
+      <span class="dates">January 2022 – August 2023</span>
+    </div>
+    <ul>
+      <li>Conducted market research to qualify B2B prospects across multiple industries for software and digital marketing services.</li>
+      <li>Built and ran outbound prospecting campaigns, maintaining CRM data and tracking progression through the pipeline.</li>
+      <li>Worked with senior consultants on conversion analysis and pipeline quality.</li>
+    </ul>
+  </div>
+
+  <h2>Education</h2>
+  <div class="entry">
+    <div class="entry-head">
+      <h3>MSc Data Science <span class="org">· University of Central Lancashire</span></h3>
+      <span class="dates">2026 – Present</span>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="entry-head">
+      <h3>BSc (Hons) Business Administration, International Business <span class="org">· Queen Margaret University, UK</span></h3>
+      <span class="dates">2023 – 2026</span>
+    </div>
+    <p class="meta">Upper second-class honours (2:1)</p>
+  </div>
+  <div class="entry">
+    <div class="entry-head">
+      <h3>G.C.E. Advanced Level and Ordinary Level <span class="org">· Royal College, Colombo</span></h3>
+      <span class="dates">2009 – 2023</span>
+    </div>
+  </div>
+
+  <h2>Certifications and additional</h2>
+  <ul>
+    <li>IBM Data Analytics Professional Certificate, 2026</li>
+    <li>Institute of Bankers of Sri Lanka (IBSL) qualification, 2024</li>
+    <li>Languages: English, Sinhala</li>
+    <li>Work authorisation: eligible to work internationally</li>
+  </ul>
+
+  <footer>
+    <p>
+      <a href="index.html">Back to portfolio</a> ·
+      <a href="assets/Lohan_De_Silva_CV.pdf">Download as PDF</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>
