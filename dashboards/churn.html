@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Churn and retention economics dashboard — Lohan De Silva</title>
+<meta name="description" content="A 7,043-account telecom book: what churn costs, which accounts carry the loss, and where a retention programme should be pointed.">
+<style>
+:root{
+  --paper:#fbfaf7; --panel:#ffffff; --ink:#16161a; --ink-2:#45443f; --ink-3:#74736c;
+  --rule:#e0ded5; --rule-strong:#c9c6ba; --accent:#1c4e80;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --pos:#0ca30c; --neg:#d03b3b; --warn:#fab219;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:78rem;margin:0 auto;padding:0 1.6rem}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(28,78,128,.28)}
+a:hover{border-bottom-color:var(--accent)}
+
+.dash-head{padding:2.4rem 0 1.4rem;border-bottom:1px solid var(--rule-strong)}
+.backlink{display:inline-block;font-size:.84rem;color:var(--ink-3);border-bottom:none;margin-bottom:1.2rem}
+.backlink:hover{color:var(--accent)}
+.dash-head h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.7rem,3.6vw,2.3rem);line-height:1.15;letter-spacing:-.015em;margin:0 0 .5rem;max-width:44rem}
+.dash-head .sub{color:var(--ink-2);margin:0 0 1rem;max-width:46rem;font-size:.98rem}
+.dash-head .meta{font-size:.83rem;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:0 1.3rem}
+.dash-head .meta a{border-bottom:none;color:var(--ink-2)}
+
+/* KPI row */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0;border-bottom:1px solid var(--rule);margin:0 0 1.6rem}
+.kpi{padding:1.4rem 1.2rem 1.3rem;border-right:1px solid var(--rule)}
+.kpi:last-child{border-right:none}
+.kpi.hero{background:#f2f5f9}
+.kpi .v{font-family:var(--serif);font-size:1.75rem;line-height:1.05;letter-spacing:-.02em;display:block}
+.kpi .l{font-size:.78rem;color:var(--ink-3);display:block;margin-top:.45rem;line-height:1.35}
+.kpi .d{font-size:.75rem;margin-top:.3rem;display:block}
+.kpi .d.pos{color:var(--pos)} .kpi .d.neg{color:var(--neg)}
+
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:flex-end;padding:0 0 1.4rem;border-bottom:1px solid var(--rule);margin-bottom:1.6rem}
+.filters .f{display:flex;flex-direction:column;gap:.25rem}
+.filters label{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.filters input[type=range]{width:11rem;accent-color:var(--accent)}
+.filters select{font-family:var(--sans);font-size:.88rem;padding:.36rem .5rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink);border-radius:2px;min-width:9.5rem}
+.filters button{font-family:var(--sans);font-size:.82rem;padding:.42rem .8rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink-2);border-radius:2px;cursor:pointer}
+.filters button:hover{border-color:var(--accent);color:var(--accent)}
+.filter-note{font-size:.8rem;color:var(--ink-3);margin-left:auto}
+
+/* panels */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.6rem;margin-bottom:1.6rem;align-items:start}
+.grid.one{grid-template-columns:1fr}
+.panel{background:var(--panel);border:1px solid var(--rule);padding:1.2rem 1.3rem 1rem}
+.panel h2{font-family:var(--serif);font-weight:400;font-size:1.12rem;line-height:1.3;margin:0 0 .2rem}
+.panel .note{font-size:.82rem;color:var(--ink-3);margin:0 0 .9rem;line-height:1.45}
+.panel .src{font-size:.74rem;color:var(--ink-3);margin:.7rem 0 0;padding-top:.6rem;border-top:1px solid var(--rule)}
+.chart{width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.empty{font-size:.85rem;color:var(--ink-3);padding:2rem 0;text-align:center}
+
+/* svg primitives */
+.axis-line{stroke:var(--rule-strong);stroke-width:1}
+.grid-line{stroke:var(--rule);stroke-width:1}
+.zero-line{stroke:var(--ink-3);stroke-width:1}
+.ref-line{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:4 4}
+.tick{font-size:10.5px;fill:var(--ink-3)}
+.tick.mid{fill:var(--ink-2)}
+.val-label{font-size:10.5px;fill:var(--ink-2)}
+.ref-label{font-size:10px;fill:var(--ink-3)}
+.mark{transition:opacity .12s}
+.chart:hover .mark{opacity:.45}
+.chart .mark:hover{opacity:1}
+
+/* table */
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.42rem .6rem;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+th{font-weight:600;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-bottom-color:var(--rule-strong)}
+tbody tr:hover{background:#f6f5f1}
+td.neg{color:var(--neg)} td.pos{color:var(--pos)}
+.scroll{overflow-x:auto;max-height:22rem;overflow-y:auto}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;background:#16161a;color:#fff;font-size:.78rem;line-height:1.4;padding:.45rem .6rem;border-radius:3px;opacity:0;transition:opacity .1s;z-index:50;max-width:16rem}
+#tip b{font-weight:600}
+#tip .k{color:#b9b8b2}
+
+.takeaway{background:#eef2f7;border-left:2px solid var(--accent);padding:1rem 1.2rem;margin:0 0 1.6rem;font-size:.92rem;color:var(--ink-2)}
+.takeaway b{color:var(--ink)}
+footer{border-top:1px solid var(--rule-strong);padding:1.8rem 0 3rem;margin-top:1rem;font-size:.83rem;color:var(--ink-3)}
+footer a{color:var(--ink-2);border-bottom:none}
+
+@media(max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .kpi{border-right:none;border-bottom:1px solid var(--rule)}
+  .wrap{padding:0 1.1rem}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="dash-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <h1>Churn and retention economics</h1>
+    <p class="sub">A 7,043-account telecom book: what churn costs, which accounts carry the loss, and where a retention programme should be pointed.</p>
+    <p class="meta">
+      <a href="../projects/customer-churn.html">Case study</a>
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis">Repository</a>
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis/blob/main/reports/executive-summary.md">Executive summary</a>
+    </p>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filters">
+    <div class="f"><label>Contract</label><select id="fC"><option value="-1">All</option><option value="0">Month-to-month</option><option value="1">One year</option><option value="2">Two year</option></select></div>
+    <div class="f"><label>Internet service</label><select id="fI"><option value="-1">All</option><option value="0">DSL</option><option value="1">Fibre</option><option value="2">No internet</option></select></div>
+    <div class="f"><label>Tenure band</label><select id="fB"><option value="-1">All</option><option value="0">0-6m</option><option value="1">6-12m</option><option value="2">12-24m</option><option value="3">24-48m</option><option value="4">48-72m</option><option value="5">72m+</option></select></div>
+    <div class="f"><label>&nbsp;</label><button id="reset">Reset</button></div>
+    <p class="filter-note" id="fnote"></p>
+  </div>
+
+  <p class="takeaway"><b>Churn takes 26.5% of the accounts but 30.5% of the revenue</b>, because
+  the customers who leave bill 21% more than the ones who stay. Two risk deciles hold 56% of the
+  loss — which is what makes a targeted save offer viable.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Contract term decides churn</h2>
+      <p class="note">Month-to-month accounts churn at almost four times the one-year rate. The dashed line is the book average.</p>
+      <div class="chart" id="c1"></div>
+      <p class="src">Source: IBM Telco extract, 7,043 accounts. Dashed line is the unfiltered book rate.</p>
+    </section>
+    <section class="panel">
+      <h2>Where the lost revenue actually sits</h2>
+      <p class="note">Ranked by revenue lost, not by churn rate — a high rate on a small segment is not where the money is.</p>
+      <div class="chart" id="c2"></div>
+      <p class="src">Source: monthly recurring revenue of accounts that closed in the observation month.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>The model concentrates the risk</h2>
+      <p class="note">Accounts ranked into deciles by modelled churn probability. Holdout AUC 0.836.</p>
+      <div class="chart" id="c3"></div>
+      <p class="src">Source: logistic regression, 30% holdout. Dashed line is the book average.</p>
+    </section>
+    <section class="panel">
+      <h2>Two deciles carry most of the loss</h2>
+      <p class="note">Cumulative share of lost revenue as the base is contacted highest-risk first.</p>
+      <div class="chart" id="c4"></div>
+      <p class="src">Source: model-ranked deciles. The diagonal is what untargeted contact would achieve.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Retention curve</h2>
+      <p class="note">Kaplan-Meier estimate across the whole book, with the 95% interval. Not affected by the filters above.</p>
+      <div class="chart" id="c5"></div>
+      <p class="src">Source: product-limit estimator; leavers as events, retained accounts right-censored at their tenure.</p>
+    </section>
+    <section class="panel">
+      <h2>Highest-value accounts at risk</h2>
+      <p class="note">Top 30 accounts by monthly bill inside the two highest-risk deciles — the list a retention team would work.</p>
+      <div id="tbl"></div>
+      <p class="src">Source: modelled churn probability, all 7,043 accounts scored.</p>
+    </section>
+  </div>
+
+  <footer>
+    <p>Every figure recomputes from the analysis pipeline in
+      <a href="https://github.com/Lohandesilva/customer-churn-analysis">customer-churn-analysis</a>.
+      <a href="../index.html">All work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a></p>
+  </footer>
+</div>
+<script>
+/* Minimal SVG chart kit. No dependencies. */
+(function (g) {
+  var NS = "http://www.w3.org/2000/svg";
+  var tip = null;
+
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  function ensureTip() {
+    if (!tip) { tip = document.createElement("div"); tip.id = "tip"; document.body.appendChild(tip); }
+    return tip;
+  }
+  function showTip(html, ev) {
+    var t = ensureTip();
+    t.innerHTML = html; t.style.opacity = 1;
+    var w = t.offsetWidth, h = t.offsetHeight;
+    var x = ev.clientX + 14, y = ev.clientY - h - 10;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+    if (y < 8) y = ev.clientY + 16;
+    t.style.left = x + "px"; t.style.top = y + "px";
+  }
+  function hideTip() { if (tip) tip.style.opacity = 0; }
+
+  function bind(node, html) {
+    node.addEventListener("mousemove", function (e) { showTip(html, e); });
+    node.addEventListener("mouseleave", hideTip);
+  }
+
+  // ---- formatters -----------------------------------------------------
+  var fmt = {
+    int: function (v) { return Math.round(v).toLocaleString("en-US"); },
+    pct1: function (v) { return (v * 100).toFixed(1) + "%"; },
+    pct0: function (v) { return Math.round(v * 100) + "%"; },
+    pct2: function (v) { return (v * 100).toFixed(2) + "%"; },
+    num1: function (v) { return v.toFixed(1); },
+    num2: function (v) { return v.toFixed(2); },
+    usd: function (v) { return (v < 0 ? "-$" : "$") + Math.abs(Math.round(v)).toLocaleString("en-US"); },
+    usdk: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-$" : "$";
+      if (a >= 1e12) return s + (a / 1e12).toFixed(2) + "tn";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    ntd: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-NT$" : "NT$";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(1) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    brl: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-R$" : "R$";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    }
+  };
+
+  function niceStep(range, n) {
+    if (range <= 0) return 1;
+    var raw = range / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    var step = r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10;
+    return step * mag;
+  }
+
+  // Round the axis outward to a clean step so ticks read 0/10/20 rather than
+  // 0/13/25. Returns the padded bounds alongside the ticks.
+  function axis(lo, hi, n) {
+    if (hi === lo) hi = lo + 1;
+    var step = niceStep(hi - lo, n);
+    var a = Math.floor(lo / step + 1e-9) * step;
+    var b = Math.ceil(hi / step - 1e-9) * step;
+    var out = [];
+    for (var v = a; v <= b + step * 1e-6; v += step) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+    return { ticks: out, lo: a, hi: b };
+  }
+
+  function nice(max) { return axis(0, max, 4).hi; }
+
+  // ---- vertical bars --------------------------------------------------
+  function bars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: 12, b: 42, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var lo = Math.min(0, Math.min.apply(null, vals));
+    var hi = Math.max.apply(null, vals);
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.08, 4);
+    var top = ax.hi, bot = ax.lo;
+    var y = function (v) { return m.t + ih - ((v - bot) / (top - bot)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = f(t);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }, svg);
+
+    var bw = iw / d.length, pad = Math.min(14, bw * 0.28);
+    d.forEach(function (row, i) {
+      var x0 = m.l + i * bw + pad / 2, w = bw - pad;
+      var v = row.value, yy = v >= 0 ? y(v) : y(0), h = Math.abs(y(v) - y(0));
+      var r = el("rect", {
+        class: "mark", x: x0, y: yy, width: w, height: Math.max(1, h),
+        fill: row.color || o.color || "var(--s1)", rx: 1
+      }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(v) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: x0 + w / 2, y: H - m.b + 15, "text-anchor": "middle" }, svg);
+      lb.textContent = row.label;
+      if (o.labels !== false && d.length <= 14) {
+        var vl = el("text", { class: "val-label", x: x0 + w / 2, y: (v >= 0 ? yy - 5 : yy + h + 12), "text-anchor": "middle" }, svg);
+        vl.textContent = f(v);
+      }
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: y(o.reference), y2: y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: W - m.r, y: y(o.reference) - 5, "text-anchor": "end" }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: y(Math.max(bot, 0)), y2: y(Math.max(bot, 0)) }, svg);
+  }
+
+  // ---- horizontal bars -------------------------------------------------
+  function hbars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var rowH = o.rowHeight || 24;
+    var W = 620, m = { t: 8, r: 90, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var hi = Math.max.apply(null, vals), lo = Math.min(0, Math.min.apply(null, vals));
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.04, 4);
+    var top = ax.hi, bot = ax.lo;
+    var iw = W - m.l - m.r;
+    var x = function (v) { return m.l + ((v - bot) / (top - bot)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: x(t), x2: x(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: x(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (row, i) {
+      var yy = m.t + i * rowH + 3, h = rowH - 8;
+      var x0 = row.value >= 0 ? x(0) : x(row.value), w = Math.abs(x(row.value) - x(0));
+      var r = el("rect", { class: "mark", x: x0, y: yy, width: Math.max(1, w), height: h, rx: 1, fill: row.color || o.color || "var(--s1)" }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(row.value) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: m.l - 8, y: yy + h / 2 + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = row.label.length > 26 ? row.label.slice(0, 25) + "…" : row.label;
+      var vl = el("text", { class: "val-label", x: (row.value >= 0 ? x0 + w + 6 : x0 - 6), y: yy + h / 2 + 3.5, "text-anchor": row.value >= 0 ? "start" : "end" }, svg);
+      vl.textContent = row.right !== undefined ? row.right : f(row.value);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: x(0), x2: x(0), y1: m.t, y2: m.t + ih }, svg);
+  }
+
+  // ---- line / area -----------------------------------------------------
+  function line(node, o) {
+    node.innerHTML = "";
+    var series = o.series || [];
+    if (!series.length || !series[0].points.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: o.rightPad || 16, b: 40, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fy = o.formatY || fmt.num1, fx = o.formatX || fmt.int;
+    var allX = [], allY = [];
+    series.forEach(function (s) { s.points.forEach(function (p) { allX.push(p[0]); allY.push(p[1]); }); });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, allX);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, allX);
+    var yA = axis(o.yMin !== undefined ? o.yMin : Math.min(0, Math.min.apply(null, allY)),
+                  o.yMax !== undefined ? o.yMax : Math.max.apply(null, allY) * 1.06, 4);
+    var y0 = o.yMin !== undefined ? o.yMin : yA.lo;
+    var y1 = o.yMax !== undefined ? o.yMax : yA.hi;
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0-1e-9&&t<=y1+1e-9;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, o.xTicks || 5).ticks.filter(function(t){return t>=x0-1e-9&&t<=x1+1e-9;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    series.forEach(function (s, si) {
+      var col = s.color || ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"][si % 4];
+      if (s.band) {
+        var up = s.band.map(function (p) { return X(p[0]) + "," + Y(p[2]); });
+        var dn = s.band.slice().reverse().map(function (p) { return X(p[0]) + "," + Y(p[1]); });
+        el("polygon", { points: up.concat(dn).join(" "), fill: col, opacity: .12 }, svg);
+      }
+      var pts = s.points.map(function (p) { return X(p[0]) + "," + Y(p[1]); }).join(" ");
+      el("polyline", { points: pts, fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+      if (s.label) {
+        var last = s.points[s.points.length - 1];
+        var lb = el("text", { class: "val-label", x: X(last[0]) + 5, y: Y(last[1]) + 3.5, fill: col }, svg);
+        lb.textContent = s.label;
+      }
+      s.points.forEach(function (p) {
+        var c = el("circle", { class: "mark", cx: X(p[0]), cy: Y(p[1]), r: 8, fill: "transparent" }, svg);
+        bind(c, "<b>" + (s.name ? s.name + "<br>" : "") + fx(p[0]) + "</b><br>" + fy(p[1]) + (p[2] ? "<br><span class='k'>" + p[2] + "</span>" : ""));
+      });
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: Y(o.reference), y2: Y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: m.l + 4, y: Y(o.reference) - 5 }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: Y(Math.max(y0, 0)), y2: Y(Math.max(y0, 0)) }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- scatter ---------------------------------------------------------
+  function scatter(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 260, m = { t: 14, r: 16, b: 44, l: 54 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fx = o.formatX || fmt.num1, fy = o.formatY || fmt.num1;
+    var xs = d.map(function (p) { return p.x; }), ys = d.map(function (p) { return p.y; });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, xs);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, xs);
+    var y0 = o.yMin !== undefined ? o.yMin : Math.min.apply(null, ys);
+    var y1 = o.yMax !== undefined ? o.yMax : Math.max.apply(null, ys);
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0&&t<=y1;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, 5).ticks.filter(function(t){return t>=x0&&t<=x1;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    var rMax = o.sizeMax || 0;
+    d.forEach(function (p) {
+      var r = rMax && p.size ? 2.5 + 7 * Math.sqrt(p.size / rMax) : (o.radius || 3.4);
+      var c = el("circle", {
+        class: "mark", cx: X(p.x), cy: Y(p.y), r: r,
+        fill: p.color || o.color || "var(--s1)", opacity: o.opacity || .62,
+        stroke: "#fff", "stroke-width": .6
+      }, svg);
+      bind(c, "<b>" + (p.label || "") + "</b><br><span class='k'>" + (o.xName || "x") + "</span> " + fx(p.x) +
+        "<br><span class='k'>" + (o.yName || "y") + "</span> " + fy(p.y) + (p.tip ? "<br>" + p.tip : ""));
+    });
+
+    if (o.zeroLine && y0 < 0 && y1 > 0) {
+      el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0) }, svg);
+    }
+    if (o.fit) {
+      el("line", { x1: X(o.fit[0][0]), y1: Y(o.fit[0][1]), x2: X(o.fit[1][0]), y2: Y(o.fit[1][1]), stroke: "var(--ink-3)", "stroke-width": 1.4, "stroke-dasharray": "5 4" }, svg);
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- range plot (p10 / q1 / median / q3 / p90) ------------------------
+  function ranges(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    var rowH = 26, W = 620, m = { t: 8, r: 60, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct0;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { lo = Math.min(lo, r.p10); hi = Math.max(hi, r.p90); });
+    var X = function (v) { return m.l + ((v - lo) / (hi - lo || 1)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(lo, hi, 4).ticks.filter(function(t){return t>=lo&&t<=hi;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      el("line", { x1: X(r.p10), x2: X(r.p90), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.5 }, svg);
+      var box = el("rect", { class: "mark", x: X(r.q1), y: cy - 6, width: Math.max(2, X(r.q3) - X(r.q1)), height: 12, fill: "var(--s1)", opacity: .3, rx: 1 }, svg);
+      var dot = el("circle", { class: "mark", cx: X(r.median), cy: cy, r: 4, fill: "var(--s1)" }, svg);
+      var html = "<b>" + r.label + "</b><br><span class='k'>median</span> " + f(r.median) +
+        "<br><span class='k'>IQR</span> " + f(r.q1) + " to " + f(r.q3) +
+        "<br><span class='k'>p10-p90</span> " + f(r.p10) + " to " + f(r.p90) +
+        (r.n ? "<br><span class='k'>n</span> " + r.n : "");
+      bind(box, html); bind(dot, html);
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label;
+      var vl = el("text", { class: "val-label", x: W - m.r + 6, y: cy + 3.5 }, svg);
+      vl.textContent = f(r.median);
+    });
+  }
+
+  // ---- heatmap ---------------------------------------------------------
+  function heatmap(node, o) {
+    node.innerHTML = "";
+    var rows = o.rows, cols = o.cols, vals = o.values;
+    var cell = 42, W = 620, m = { t: 28, r: 10, b: 34, l: 92 };
+    var gw = Math.min(cell, (W - m.l - m.r) / cols.length);
+    var H = rows.length * cell + m.t + m.b;
+    var f = o.format || fmt.pct0;
+    var max = 0; vals.forEach(function (r) { r.forEach(function (v) { if (v > max) max = v; }); });
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    cols.forEach(function (c, j) {
+      var tx = el("text", { class: "tick", x: m.l + j * gw + gw / 2, y: m.t - 9, "text-anchor": "middle" }, svg);
+      tx.textContent = c;
+    });
+    rows.forEach(function (r, i) {
+      var tx = el("text", { class: "tick", x: m.l - 8, y: m.t + i * cell + cell / 2 + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = r;
+      cols.forEach(function (c, j) {
+        var v = vals[i][j], t = max ? v / max : 0;
+        var rect = el("rect", {
+          class: "mark", x: m.l + j * gw + 1, y: m.t + i * cell + 1,
+          width: gw - 2, height: cell - 2, rx: 1,
+          fill: "var(--s1)", opacity: 0.06 + 0.9 * Math.pow(t, 0.6)
+        }, svg);
+        bind(rect, "<b>" + r + " → " + c + "</b><br>" + f(v));
+        if (v > 0.005) {
+          var lab = el("text", {
+            x: m.l + j * gw + gw / 2, y: m.t + i * cell + cell / 2 + 3.5,
+            "text-anchor": "middle", "font-size": 10.5,
+            fill: t > 0.55 ? "#fff" : "var(--ink-2)"
+          }, svg);
+          lab.textContent = f(v);
+        }
+      });
+    });
+    var xl = el("text", { class: "tick mid", x: m.l + (cols.length * gw) / 2, y: H - 8, "text-anchor": "middle" }, svg);
+    xl.textContent = o.xLabel || "";
+  }
+
+
+  // ---- dumbbell: two values per row, connected ------------------------
+  function dumbbell(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows.</p>'; return; }
+    var rowH = o.rowHeight || 30, W = 620, m = { t: 26, r: 70, b: 30, l: o.labelWidth || 118 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct1;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { [r.a, r.b].forEach(function (v) { if (v !== null) hi = Math.max(hi, v); }); });
+    var ax = axis(lo, hi * 1.06, 4), X = function (v) { return m.l + ((v - ax.lo) / (ax.hi - ax.lo)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 10, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+    // legend
+    var lg = [[o.aName || "A", o.aColor || "var(--s3)"], [o.bName || "B", o.bColor || "var(--s2)"]];
+    lg.forEach(function (p, i) {
+      el("circle", { cx: m.l + i * 132 + 4, cy: 10, r: 4.5, fill: p[1] }, svg);
+      var t = el("text", { class: "tick mid", x: m.l + i * 132 + 14, y: 13.5 }, svg);
+      t.textContent = p[0];
+    });
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      if (r.a !== null && r.b !== null) {
+        el("line", { x1: X(r.a), x2: X(r.b), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.6 }, svg);
+      }
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label;
+      [["a", o.aColor || "var(--s3)", o.aName], ["b", o.bColor || "var(--s2)", o.bName]].forEach(function (p) {
+        if (r[p[0]] === null) return;
+        var c = el("circle", { class: "mark", cx: X(r[p[0]]), cy: cy, r: 5.5, fill: p[1], stroke: "#fff", "stroke-width": 1 }, svg);
+        bind(c, "<b>" + r.label + "</b><br><span class='k'>" + p[2] + "</span> " + f(r[p[0]]) +
+          (r.tip ? "<br>" + r.tip : ""));
+      });
+      if (r.right) {
+        var vl = el("text", { class: "val-label", x: W - m.r + 8, y: cy + 3.5 }, svg);
+        vl.textContent = r.right;
+      }
+      if (r.note) {
+        var nt = el("text", { class: "ref-label", x: m.l + 4, y: cy + 3.5 }, svg);
+        nt.textContent = r.note;
+      }
+    });
+  }
+
+  // ---- table -----------------------------------------------------------
+  function table(node, o) {
+    var rows = o.rows || [];
+    if (!rows.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var h = "<div class='scroll'><table><thead><tr>";
+    o.columns.forEach(function (c) { h += "<th>" + c.label + "</th>"; });
+    h += "</tr></thead><tbody>";
+    rows.forEach(function (r) {
+      h += "<tr>";
+      o.columns.forEach(function (c) {
+        var v = r[c.key];
+        var cls = c.signed ? (v < 0 ? " class='neg'" : v > 0 ? " class='pos'" : "") : "";
+        h += "<td" + cls + ">" + (c.format ? c.format(v, r) : v) + "</td>";
+      });
+      h += "</tr>";
+    });
+    node.innerHTML = h + "</tbody></table></div>";
+  }
+
+  function kpis(node, items) {
+    node.innerHTML = items.map(function (k) {
+      return "<div class='kpi" + (k.hero ? " hero" : "") + "'><span class='v'>" + k.value + "</span>" +
+        "<span class='l'>" + k.label + "</span>" +
+        (k.delta ? "<span class='d " + (k.deltaClass || "") + "'>" + k.delta + "</span>" : "") + "</div>";
+    }).join("");
+  }
+
+  g.Kit = { bars: bars, hbars: hbars, line: line, scatter: scatter, ranges: ranges, heatmap: heatmap, dumbbell: dumbbell, table: table, kpis: kpis, fmt: fmt };
+})(window);
+
+</script>
+<script>
+
+var D = {"contracts":["Month-to-month","One year","Two year"],"internets":["DSL","Fibre","No internet"],"bands":["0-6m","6-12m","12-24m","24-48m","48-72m","72m+"],"cube":[[0.0,0.0,0.0,1.0,18.0,18.0,721.25,721.25],[0.0,0.0,0.0,2.0,74.0,48.0,3071.6,1851.6],[0.0,0.0,0.0,3.0,173.0,88.0,7777.6,3990.45],[0.0,0.0,0.0,4.0,151.0,65.0,7369.9,3131.55],[0.0,0.0,0.0,5.0,44.0,14.0,2268.5,709.6],[0.0,0.0,0.0,6.0,3.0,2.0,174.75,110.35],[0.0,0.0,1.0,1.0,4.0,3.0,186.5,142.1],[0.0,0.0,1.0,2.0,11.0,3.0,599.65,138.75],[0.0,0.0,1.0,3.0,50.0,15.0,2445.1,711.85],[0.0,0.0,1.0,4.0,81.0,23.0,4110.1,1126.2],[0.0,0.0,1.0,5.0,43.0,4.0,2369.35,210.75],[0.0,0.0,1.0,6.0,7.0,2.0,378.55,111.1],[0.0,0.0,1.0,7.0,1.0,1.0,65.0,65.0],[0.0,0.0,2.0,1.0,1.0,0.0,46.35,0.0],[0.0,0.0,2.0,2.0,14.0,7.0,648.1,302.9],[0.0,0.0,2.0,3.0,43.0,15.0,2111.6,658.55],[0.0,0.0,2.0,4.0,73.0,19.0,3722.4,1040.2],[0.0,0.0,2.0,5.0,84.0,11.0,4626.3,576.8],[0.0,0.0,2.0,6.0,20.0,3.0,1104.85,163.3],[0.0,0.0,2.0,7.0,4.0,1.0,233.65,61.15],[0.0,0.0,3.0,2.0,1.0,0.0,48.25,0.0],[0.0,0.0,3.0,3.0,15.0,5.0,700.65,225.15],[0.0,0.0,3.0,4.0,43.0,9.0,2139.05,384.75],[0.0,0.0,3.0,5.0,66.0,11.0,3512.4,558.85],[0.0,0.0,3.0,6.0,72.0,11.0,4110.8,559.55],[0.0,0.0,3.0,7.0,44.0,5.0,2465.7,276.0],[0.0,0.0,3.0,8.0,5.0,0.0,319.7,0.0],[0.0,0.0,4.0,4.0,7.0,3.0,347.65,148.45],[0.0,0.0,4.0,5.0,16.0,3.0,736.25,135.4],[0.0,0.0,4.0,6.0,20.0,3.0,996.15,140.9],[0.0,0.0,4.0,7.0,22.0,2.0,1236.95,114.75],[0.0,0.0,4.0,8.0,11.0,0.0,646.85,0.0],[0.0,0.0,4.0,9.0,2.0,0.0,126.95,0.0],[0.0,1.0,0.0,1.0,375.0,305.0,30611.7,24978.5],[0.0,1.0,0.0,2.0,157.0,99.0,12198.7,7624.25],[0.0,1.0,0.0,3.0,43.0,26.0,3335.45,2008.35],[0.0,1.0,1.0,1.0,158.0,114.0,13959.6,10204.65],[0.0,1.0,1.0,2.0,112.0,61.0,9073.9,4996.8],[0.0,1.0,1.0,3.0,28.0,12.0,2191.85,995.2],[0.0,1.0,1.0,4.0,3.0,1.0,259.1,91.75],[0.0,1.0,2.0,1.0,114.0,70.0,10539.05,6473.55],[0.0,1.0,2.0,2.0,176.0,104.0,15242.1,9124.25],[0.0,1.0,2.0,3.0,111.0,42.0,9441.7,3580.2],[0.0,1.0,2.0,4.0,26.0,6.0,2147.6,490.6],[0.0,1.0,2.0,5.0,3.0,1.0,239.05,80.85],[0.0,1.0,2.0,6.0,1.0,0.0,84.4,0.0],[0.0,1.0,3.0,1.0,35.0,30.0,3394.15,2905.2],[0.0,1.0,3.0,2.0,154.0,86.0,14435.3,8063.65],[0.0,1.0,3.0,3.0,181.0,64.0,16502.8,5832.85],[0.0,1.0,3.0,4.0,129.0,52.0,11363.85,4570.5],[0.0,1.0,3.0,5.0,40.0,9.0,3350.0,741.25],[0.0,1.0,3.0,6.0,5.0,0.0,441.25,0.0],[0.0,1.0,4.0,2.0,3.0,3.0,289.7,289.7],[0.0,1.0,4.0,3.0,40.0,18.0,3992.85,1787.9],[0.0,1.0,4.0,4.0,102.0,39.0,9906.45,3763.65],[0.0,1.0,4.0,5.0,91.0,18.0,8498.2,1682.0],[0.0,1.0,4.0,6.0,30.0,2.0,2695.45,196.35],[0.0,1.0,4.0,7.0,9.0,0.0,779.35,0.0],[0.0,1.0,5.0,5.0,1.0,0.0,94.65,0.0],[0.0,1.0,5.0,6.0,1.0,0.0,112.9,0.0],[0.0,2.0,0.0,4.0,13.0,4.0,279.05,82.95],[0.0,2.0,0.0,5.0,103.0,31.0,2102.95,625.55],[0.0,2.0,0.0,6.0,164.0,40.0,3279.7,803.5],[0.0,2.0,1.0,4.0,1.0,0.0,24.0,0.0],[0.0,2.0,1.0,5.0,20.0,3.0,418.25,57.85],[0.0,2.0,1.0,6.0,64.0,8.0,1291.25,162.3],[0.0,2.0,1.0,7.0,7.0,1.0,143.15,20.1],[0.0,2.0,2.0,5.0,10.0,2.0,227.6,45.4],[0.0,2.0,2.0,6.0,42.0,2.0,865.5,39.1],[0.0,2.0,2.0,7.0,43.0,5.0,866.05,102.5],[0.0,2.0,3.0,6.0,8.0,0.0,181.1,0.0],[0.0,2.0,3.0,7.0,32.0,2.0,668.85,39.2],[0.0,2.0,3.0,8.0,15.0,0.0,307.75,0.0],[0.0,2.0,4.0,9.0,2.0,1.0,39.4,19.4],[1.0,0.0,0.0,3.0,1.0,0.0,69.95,0.0],[1.0,0.0,0.0,4.0,1.0,1.0,70.0,70.0],[1.0,0.0,0.0,5.0,2.0,0.0,99.95,0.0],[1.0,0.0,1.0,3.0,1.0,1.0,41.6,41.6],[1.0,0.0,1.0,4.0,3.0,0.0,134.85,0.0],[1.0,0.0,1.0,5.0,6.0,2.0,279.15,73.85],[1.0,0.0,1.0,6.0,10.0,0.0,535.9,0.0],[1.0,0.0,1.0,7.0,8.0,0.0,432.8,0.0],[1.0,0.0,2.0,4.0,9.0,3.0,534.85,176.1],[1.0,0.0,2.0,5.0,13.0,4.0,857.1,259.6],[1.0,0.0,2.0,6.0,25.0,4.0,1447.6,227.35],[1.0,0.0,2.0,7.0,27.0,3.0,1582.35,200.15],[1.0,0.0,2.0,8.0,6.0,0.0,362.45,0.0],[1.0,0.0,3.0,4.0,2.0,0.0,89.15,0.0],[1.0,0.0,3.0,5.0,17.0,1.0,977.95,73.0],[1.0,0.0,3.0,6.0,39.0,3.0,2479.15,193.3],[1.0,0.0,3.0,7.0,97.0,6.0,5979.2,400.05],[1.0,0.0,3.0,8.0,71.0,9.0,4273.45,601.25],[1.0,0.0,3.0,9.0,8.0,1.0,512.55,73.9],[1.0,0.0,4.0,5.0,1.0,0.0,55.45,0.0],[1.0,0.0,4.0,6.0,6.0,2.0,349.15,105.7],[1.0,0.0,4.0,7.0,43.0,4.0,2807.45,265.6],[1.0,0.0,4.0,8.0,83.0,4.0,5159.35,247.3],[1.0,0.0,4.0,9.0,78.0,5.0,5023.95,347.5],[1.0,0.0,4.0,10.0,13.0,0.0,840.8,0.0],[1.0,1.0,0.0,2.0,1.0,1.0,105.65,105.65],[1.0,1.0,1.0,2.0,1.0,0.0,90.35,0.0],[1.0,1.0,1.0,3.0,2.0,0.0,192.95,0.0],[1.0,1.0,2.0,3.0,6.0,1.0,578.05,100.95],[1.0,1.0,2.0,4.0,10.0,1.0,891.45,95.5],[1.0,1.0,2.0,5.0,6.0,3.0,573.35,304.55],[1.0,1.0,2.0,6.0,2.0,0.0,176.15,0.0],[1.0,1.0,2.0,7.0,1.0,0.0,86.8,0.0],[1.0,1.0,3.0,3.0,9.0,3.0,876.3,282.9],[1.0,1.0,3.0,4.0,35.0,11.0,3469.4,1087.1],[1.0,1.0,3.0,5.0,57.0,10.0,5427.75,961.4],[1.0,1.0,3.0,6.0,36.0,3.0,3366.6,311.1],[1.0,1.0,3.0,7.0,11.0,1.0,1071.55,105.2],[1.0,1.0,4.0,3.0,1.0,0.0,99.0,0.0],[1.0,1.0,4.0,4.0,14.0,4.0,1417.65,398.75],[1.0,1.0,4.0,5.0,75.0,19.0,7539.0,1961.25],[1.0,1.0,4.0,6.0,106.0,28.0,10787.65,2882.8],[1.0,1.0,4.0,7.0,113.0,12.0,11317.35,1222.1],[1.0,1.0,4.0,8.0,36.0,5.0,3412.0,525.65],[1.0,1.0,4.0,9.0,1.0,0.0,84.8,0.0],[1.0,1.0,5.0,5.0,2.0,0.0,206.3,0.0],[1.0,1.0,5.0,6.0,5.0,1.0,506.1,109.25],[1.0,1.0,5.0,7.0,7.0,0.0,743.25,0.0],[1.0,1.0,5.0,8.0,2.0,1.0,222.7,117.8],[1.0,2.0,0.0,6.0,4.0,0.0,83.1,0.0],[1.0,2.0,0.0,7.0,23.0,2.0,465.85,39.15],[1.0,2.0,1.0,6.0,2.0,0.0,45.1,0.0],[1.0,2.0,1.0,7.0,30.0,1.0,604.2,19.75],[1.0,2.0,1.0,8.0,7.0,0.0,142.6,0.0],[1.0,2.0,2.0,6.0,1.0,0.0,19.95,0.0],[1.0,2.0,2.0,7.0,33.0,0.0,684.9,0.0],[1.0,2.0,2.0,8.0,60.0,2.0,1205.75,39.95],[1.0,2.0,3.0,7.0,4.0,0.0,100.55,0.0],[1.0,2.0,3.0,8.0,78.0,2.0,1650.5,45.7],[1.0,2.0,3.0,9.0,46.0,0.0,936.15,0.0],[1.0,2.0,4.0,8.0,2.0,0.0,49.8,0.0],[1.0,2.0,4.0,9.0,47.0,2.0,1028.15,45.7],[1.0,2.0,4.0,10.0,26.0,0.0,538.4,0.0],[1.0,2.0,5.0,10.0,1.0,0.0,23.3,0.0],[2.0,0.0,0.0,6.0,1.0,0.0,52.55,0.0],[2.0,0.0,0.0,7.0,4.0,0.0,272.15,0.0],[2.0,0.0,0.0,8.0,2.0,0.0,130.6,0.0],[2.0,0.0,1.0,6.0,2.0,0.0,93.0,0.0],[2.0,0.0,1.0,7.0,7.0,0.0,383.4,0.0],[2.0,0.0,1.0,8.0,1.0,0.0,65.5,0.0],[2.0,0.0,2.0,5.0,1.0,0.0,38.8,0.0],[2.0,0.0,2.0,7.0,9.0,0.0,559.95,0.0],[2.0,0.0,2.0,8.0,12.0,0.0,659.4,0.0],[2.0,0.0,3.0,6.0,1.0,0.0,74.85,0.0],[2.0,0.0,3.0,7.0,8.0,0.0,490.3,0.0],[2.0,0.0,3.0,8.0,29.0,0.0,1769.75,0.0],[2.0,0.0,3.0,9.0,37.0,1.0,2534.2,54.35],[2.0,0.0,3.0,10.0,3.0,0.0,181.75,0.0],[2.0,0.0,4.0,7.0,4.0,0.0,235.7,0.0],[2.0,0.0,4.0,8.0,34.0,3.0,2328.1,209.6],[2.0,0.0,4.0,9.0,179.0,2.0,12651.45,118.05],[2.0,0.0,4.0,10.0,161.0,4.0,11504.8,277.05],[2.0,0.0,5.0,8.0,3.0,1.0,187.65,54.2],[2.0,0.0,5.0,9.0,52.0,0.0,4027.9,0.0],[2.0,0.0,5.0,10.0,78.0,1.0,6008.95,92.45],[2.0,1.0,3.0,4.0,1.0,0.0,96.55,0.0],[2.0,1.0,3.0,5.0,4.0,1.0,427.9,104.6],[2.0,1.0,3.0,6.0,9.0,0.0,919.0,0.0],[2.0,1.0,3.0,7.0,15.0,1.0,1525.5,80.45],[2.0,1.0,3.0,8.0,2.0,0.0,180.25,0.0],[2.0,1.0,4.0,6.0,16.0,3.0,1642.1,311.5],[2.0,1.0,4.0,7.0,75.0,10.0,7697.45,1043.4],[2.0,1.0,4.0,8.0,115.0,11.0,11931.9,1179.85],[2.0,1.0,4.0,9.0,43.0,2.0,4486.25,224.85],[2.0,1.0,4.0,10.0,4.0,1.0,373.8,93.9],[2.0,1.0,5.0,6.0,2.0,0.0,201.5,0.0],[2.0,1.0,5.0,7.0,20.0,2.0,2122.85,207.55],[2.0,1.0,5.0,8.0,67.0,0.0,7354.9,0.0],[2.0,1.0,5.0,9.0,56.0,0.0,5901.2,0.0],[2.0,2.0,0.0,7.0,2.0,0.0,51.7,0.0],[2.0,2.0,0.0,8.0,12.0,0.0,250.5,0.0],[2.0,2.0,1.0,8.0,22.0,0.0,459.6,0.0],[2.0,2.0,1.0,9.0,6.0,0.0,120.4,0.0],[2.0,2.0,2.0,7.0,1.0,0.0,20.05,0.0],[2.0,2.0,2.0,8.0,24.0,0.0,545.6,0.0],[2.0,2.0,2.0,9.0,36.0,0.0,742.55,0.0],[2.0,2.0,3.0,8.0,5.0,0.0,119.15,0.0],[2.0,2.0,3.0,9.0,100.0,2.0,2159.7,49.25],[2.0,2.0,3.0,10.0,55.0,0.0,1111.35,0.0],[2.0,2.0,4.0,9.0,11.0,1.0,257.6,25.15],[2.0,2.0,4.0,10.0,299.0,2.0,6558.0,39.1],[2.0,2.0,5.0,10.0,65.0,0.0,1497.75,0.0]],"survival":[[0.0,1.0,1.0,1.0],[1.0,0.946,0.9407,0.9512],[2.0,0.9278,0.9218,0.9339],[3.0,0.9137,0.9071,0.9203],[4.0,0.901,0.894,0.9081],[5.0,0.8911,0.8837,0.8985],[6.0,0.8848,0.8772,0.8924],[7.0,0.8767,0.8689,0.8846],[8.0,0.8699,0.8619,0.878],[9.0,0.8624,0.8541,0.8707],[10.0,0.8549,0.8464,0.8634],[11.0,0.8497,0.8411,0.8583],[12.0,0.8432,0.8344,0.852],[13.0,0.8366,0.8276,0.8456],[14.0,0.8324,0.8233,0.8415],[15.0,0.8258,0.8165,0.835],[16.0,0.8207,0.8113,0.8301],[17.0,0.816,0.8065,0.8255],[18.0,0.8115,0.8019,0.8212],[19.0,0.808,0.7982,0.8177],[20.0,0.8045,0.7947,0.8143],[21.0,0.8012,0.7913,0.8111],[22.0,0.796,0.7859,0.806],[23.0,0.7934,0.7833,0.8035],[24.0,0.7887,0.7785,0.7989],[25.0,0.784,0.7737,0.7943],[26.0,0.7809,0.7705,0.7913],[27.0,0.7781,0.7676,0.7886],[28.0,0.7755,0.765,0.7861],[29.0,0.7722,0.7616,0.7829],[30.0,0.7687,0.758,0.7794],[31.0,0.7651,0.7542,0.7759],[32.0,0.7607,0.7498,0.7716],[33.0,0.7574,0.7464,0.7685],[34.0,0.7546,0.7435,0.7657],[35.0,0.751,0.7398,0.7622],[36.0,0.7485,0.7373,0.7598],[37.0,0.7448,0.7334,0.7562],[38.0,0.7415,0.7301,0.753],[39.0,0.7379,0.7263,0.7494],[40.0,0.7345,0.7229,0.7461],[41.0,0.7308,0.719,0.7425],[42.0,0.727,0.7151,0.7388],[43.0,0.7228,0.7108,0.7348],[44.0,0.7211,0.7091,0.7331],[45.0,0.7194,0.7073,0.7314],[46.0,0.7158,0.7037,0.728],[47.0,0.7116,0.6993,0.7239],[48.0,0.7088,0.6965,0.7212],[49.0,0.7041,0.6916,0.7166],[50.0,0.7009,0.6882,0.7135],[51.0,0.6982,0.6855,0.7109],[52.0,0.6954,0.6826,0.7083],[53.0,0.6905,0.6775,0.7035],[54.0,0.6857,0.6726,0.6989],[55.0,0.6823,0.669,0.6956],[56.0,0.6784,0.665,0.6918],[57.0,0.6752,0.6617,0.6887],[58.0,0.6706,0.6569,0.6843],[59.0,0.6671,0.6532,0.681],[60.0,0.6644,0.6504,0.6784],[61.0,0.6606,0.6465,0.6748],[62.0,0.6581,0.6439,0.6724],[63.0,0.6561,0.6417,0.6704],[64.0,0.6538,0.6394,0.6683],[65.0,0.6485,0.6338,0.6633],[66.0,0.6404,0.6252,0.6556],[67.0,0.6336,0.618,0.6492],[68.0,0.6269,0.6108,0.6429],[69.0,0.6201,0.6036,0.6367],[70.0,0.6097,0.5923,0.6271],[71.0,0.6028,0.5847,0.6208],[72.0,0.5928,0.5733,0.6122]],"atRisk":[["0771-WLCLA","Month-to-month","Fiber optic",16,112.95,0.547,2],["1583-IHQZE","Month-to-month","Fiber optic",12,112.95,0.595,2],["3292-PBZEJ","Month-to-month","Fiber optic",11,111.4,0.752,1],["0115-TFERT","Month-to-month","Fiber optic",21,111.2,0.62,2],["6030-REHUX","Month-to-month","Fiber optic",28,110.85,0.617,2],["3336-JORSO","Month-to-month","Fiber optic",33,110.45,0.597,2],["9851-KIELU","Month-to-month","Fiber optic",10,110.1,0.576,2],["3992-YWPKO","Month-to-month","Fiber optic",6,109.9,0.665,2],["9971-ZWPBF","Month-to-month","Fiber optic",34,108.9,0.544,2],["5760-IFJOZ","Month-to-month","Fiber optic",3,107.95,0.667,2],["2081-VEYEH","Month-to-month","Fiber optic",3,107.95,0.698,1],["4716-HHKQH","Month-to-month","Fiber optic",20,107.05,0.597,2],["3606-TWKGI","Month-to-month","Fiber optic",13,106.9,0.8,1],["2027-FECZV","Month-to-month","Fiber optic",12,106.7,0.77,1],["8118-LSUEL","Month-to-month","Fiber optic",23,106.4,0.743,1],["5380-WJKOV","Month-to-month","Fiber optic",34,106.35,0.617,2],["0337-CNPZE","Month-to-month","Fiber optic",41,106.3,0.561,2],["3957-LXOLK","Month-to-month","Fiber optic",28,106.15,0.711,1],["1309-BXVOQ","Month-to-month","Fiber optic",21,106.1,0.64,2],["5130-IEKQT","Month-to-month","Fiber optic",25,105.95,0.555,2],["1400-MMYXY","Month-to-month","Fiber optic",3,105.9,0.842,1],["2249-YPRNG","Month-to-month","Fiber optic",20,105.85,0.576,2],["1104-TNLZA","Month-to-month","Fiber optic",28,105.8,0.623,2],["6900-PXRMS","Month-to-month","Fiber optic",26,105.75,0.601,2],["8868-WOZGU","Month-to-month","Fiber optic",28,105.7,0.667,2],["8111-SLLHI","Month-to-month","Fiber optic",39,105.65,0.615,2],["3932-CMDTD","One year","Fiber optic",4,105.65,0.538,2],["3389-YGYAI","Month-to-month","Fiber optic",8,105.5,0.831,1],["5947-SGKCL","Month-to-month","Fiber optic",15,105.35,0.619,2],["8059-UDZFY","Month-to-month","Fiber optic",33,105.35,0.542,2]]};
+var F = window.Kit.fmt;
+var BASE_RATE = 0.2653698707936959;
+
+function filtered(){
+  var c=+document.getElementById('fC').value, i=+document.getElementById('fI').value, b=+document.getElementById('fB').value;
+  return D.cube.filter(function(r){
+    return (c<0||r[0]===c) && (i<0||r[1]===i) && (b<0||r[2]===b);
+  });
+}
+function tot(rows,k){ return rows.reduce(function(s,r){return s+r[k];},0); }
+
+function render(){
+  var rows = filtered();
+  var n=tot(rows,4), ch=tot(rows,5), rev=tot(rows,6), chrev=tot(rows,7);
+  var all = D.cube, nAll=tot(all,4);
+
+  Kit.kpis(document.getElementById('kpis'), [
+    {value: F.usd(rev), label:'Monthly recurring revenue'},
+    {value: F.int(n), label:'Accounts in view'},
+    {value: n? F.pct1(ch/n):'--', label:'Churn rate, accounts', hero:true},
+    {value: rev? F.pct1(chrev/rev):'--', label:'Churn rate, revenue', hero:true},
+    {value: F.usd(chrev), label:'Monthly revenue lost',
+     delta: F.usd(chrev*12)+' annualised'}
+  ]);
+  document.getElementById('fnote').textContent =
+    n===nAll ? 'Showing all 7,043 accounts' : F.int(n)+' of 7,043 accounts ('+F.pct0(n/nAll)+')';
+
+  // contract
+  var byC = D.contracts.map(function(name,idx){
+    var s = rows.filter(function(r){return r[0]===idx;});
+    var nn=tot(s,4), cc=tot(s,5);
+    return {label:name, value: nn? cc/nn : 0, color: idx===0?'var(--s2)':'var(--s1)',
+            tip: F.int(nn)+' accounts, '+F.int(cc)+' lost'};
+  }).filter(function(d,idx){ return rows.some(function(r){return r[0]===idx;}); });
+  Kit.bars(document.getElementById('c1'), {data:byC, format:F.pct0, reference:BASE_RATE,
+    referenceLabel:'book average 26.5%', tipLabel:'churn rate ', height:220});
+
+  // segment
+  var seg=[];
+  D.contracts.forEach(function(cn,ci){ D.internets.forEach(function(inm,ii){
+    var s = rows.filter(function(r){return r[0]===ci&&r[1]===ii;});
+    if(!s.length) return;
+    var v=tot(s,7), nn=tot(s,4), cc=tot(s,5);
+    if(v<=0) return;
+    seg.push({label:cn+' / '+inm, value:v, tip: F.int(nn)+' accounts, churn '+(nn?F.pct0(cc/nn):'--'),
+              color: v>50000?'var(--s2)':'var(--s1)'});
+  });});
+  seg.sort(function(a,b){return b.value-a.value;});
+  Kit.hbars(document.getElementById('c2'), {data:seg.slice(0,8), format:F.usd,
+    tipLabel:'revenue lost ', labelWidth:170, rowHeight:26});
+
+  // deciles
+  var dec=[], cum=[[0,0]], run=0, totRev=chrev;
+  for(var d=1; d<=10; d++){
+    var s = rows.filter(function(r){return r[3]===d;});
+    var nn=tot(s,4), cc=tot(s,5), rr=tot(s,7);
+    dec.push({label:String(d), value: nn? cc/nn : 0,
+              color: d<=2?'var(--s2)':'var(--s1)',
+              tip: F.int(nn)+' accounts, '+F.usd(rr)+' lost'});
+    run+=rr;
+    cum.push([d/10, totRev? run/totRev : 0]);
+  }
+  Kit.bars(document.getElementById('c3'), {data:dec, format:F.pct0, reference:BASE_RATE,
+    referenceLabel:'book average', tipLabel:'churn rate ', labels:false, height:220});
+
+  Kit.line(document.getElementById('c4'), {
+    series:[{points:cum, color:'var(--s1)', name:'targeted'},
+            {points:[[0,0],[1,1]], color:'var(--rule-strong)', name:'no targeting'}],
+    formatX:F.pct0, formatY:F.pct0, xMin:0, xMax:1, yMin:0, yMax:1,
+    xLabel:'Share of the base contacted, highest risk first', height:220});
+
+  // survival (unfiltered)
+  Kit.line(document.getElementById('c5'), {
+    series:[{points: D.survival.map(function(r){return [r[0],r[1]];}),
+             band: D.survival.map(function(r){return [r[0],r[2],r[3]];}),
+             color:'var(--s1)'}],
+    formatY:F.pct0, formatX:F.int, yMin:0, yMax:1, xMin:0,
+    reference:0.5, referenceLabel:'50% retained',
+    xLabel:'Months on book', height:220});
+
+  Kit.table(document.getElementById('tbl'), {
+    columns:[
+      {key:0,label:'Account'},{key:1,label:'Contract'},{key:2,label:'Internet'},
+      {key:3,label:'Tenure',format:function(v){return v+'m';}},
+      {key:4,label:'Bill',format:F.usd},
+      {key:5,label:'Risk',format:F.pct0},
+      {key:6,label:'Decile'}
+    ],
+    rows: D.atRisk.map(function(a){return {0:a[0],1:a[1],2:a[2],3:a[3],4:a[4],5:a[5],6:a[6]};})
+  });
+}
+['fC','fI','fB'].forEach(function(id){ document.getElementById(id).addEventListener('change', render); });
+document.getElementById('reset').addEventListener('click', function(){
+  ['fC','fI','fB'].forEach(function(id){ document.getElementById(id).value='-1'; }); render();
+});
+render();
+
+</script>
+</body>
+</html>

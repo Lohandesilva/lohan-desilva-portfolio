@@ -27,6 +27,7 @@ TEMPLATE = """<!DOCTYPE html>
     <h1>{headline}</h1>
     <p class="lede">{lede}</p>
     <p class="links">
+      <a href="../dashboards/{dash}.html">Interactive dashboard</a>
       <a href="{repo}">Repository</a>
       <a href="{repo}/blob/main/reports/executive-summary.md">Executive summary</a>
       <a href="{repo}/blob/main/reports/technical-appendix.md">Technical appendix</a>
@@ -69,6 +70,10 @@ def callout(label: str, html: str) -> str:
     return (f'  <div class="callout"><p class="callout-label">{label}</p>\n'
             f'  {html}</div>')
 
+
+DASH = {"customer-churn": "churn", "sales-margin": "sales",
+        "sp500-profitability": "sp500", "credit-risk": "credit",
+        "clinic-capacity": "clinic"}
 
 PROJECTS = {
 "customer-churn": dict(
@@ -475,6 +480,7 @@ def main() -> None:
             headline=p["headline"],
             lede=p["lede"],
             repo=p["repo"],
+            dash=DASH[slug],
             keyfigs="\n".join(keyfig(v, l) for v, l in p["keyfigs"]),
             body=p["body"],
             caveat=p["caveat"],

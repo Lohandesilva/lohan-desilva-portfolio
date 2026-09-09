@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit portfolio risk dashboard — Lohan De Silva</title>
+<meta name="description" content="A 30,000-account credit card book: roll rates, a behavioural scorecard built without protected characteristics, and where the expected loss sits.">
+<style>
+:root{
+  --paper:#fbfaf7; --panel:#ffffff; --ink:#16161a; --ink-2:#45443f; --ink-3:#74736c;
+  --rule:#e0ded5; --rule-strong:#c9c6ba; --accent:#1c4e80;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --pos:#0ca30c; --neg:#d03b3b; --warn:#fab219;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:78rem;margin:0 auto;padding:0 1.6rem}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(28,78,128,.28)}
+a:hover{border-bottom-color:var(--accent)}
+
+.dash-head{padding:2.4rem 0 1.4rem;border-bottom:1px solid var(--rule-strong)}
+.backlink{display:inline-block;font-size:.84rem;color:var(--ink-3);border-bottom:none;margin-bottom:1.2rem}
+.backlink:hover{color:var(--accent)}
+.dash-head h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.7rem,3.6vw,2.3rem);line-height:1.15;letter-spacing:-.015em;margin:0 0 .5rem;max-width:44rem}
+.dash-head .sub{color:var(--ink-2);margin:0 0 1rem;max-width:46rem;font-size:.98rem}
+.dash-head .meta{font-size:.83rem;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:0 1.3rem}
+.dash-head .meta a{border-bottom:none;color:var(--ink-2)}
+
+/* KPI row */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0;border-bottom:1px solid var(--rule);margin:0 0 1.6rem}
+.kpi{padding:1.4rem 1.2rem 1.3rem;border-right:1px solid var(--rule)}
+.kpi:last-child{border-right:none}
+.kpi.hero{background:#f2f5f9}
+.kpi .v{font-family:var(--serif);font-size:1.75rem;line-height:1.05;letter-spacing:-.02em;display:block}
+.kpi .l{font-size:.78rem;color:var(--ink-3);display:block;margin-top:.45rem;line-height:1.35}
+.kpi .d{font-size:.75rem;margin-top:.3rem;display:block}
+.kpi .d.pos{color:var(--pos)} .kpi .d.neg{color:var(--neg)}
+
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:flex-end;padding:0 0 1.4rem;border-bottom:1px solid var(--rule);margin-bottom:1.6rem}
+.filters .f{display:flex;flex-direction:column;gap:.25rem}
+.filters label{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.filters input[type=range]{width:11rem;accent-color:var(--accent)}
+.filters select{font-family:var(--sans);font-size:.88rem;padding:.36rem .5rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink);border-radius:2px;min-width:9.5rem}
+.filters button{font-family:var(--sans);font-size:.82rem;padding:.42rem .8rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink-2);border-radius:2px;cursor:pointer}
+.filters button:hover{border-color:var(--accent);color:var(--accent)}
+.filter-note{font-size:.8rem;color:var(--ink-3);margin-left:auto}
+
+/* panels */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.6rem;margin-bottom:1.6rem;align-items:start}
+.grid.one{grid-template-columns:1fr}
+.panel{background:var(--panel);border:1px solid var(--rule);padding:1.2rem 1.3rem 1rem}
+.panel h2{font-family:var(--serif);font-weight:400;font-size:1.12rem;line-height:1.3;margin:0 0 .2rem}
+.panel .note{font-size:.82rem;color:var(--ink-3);margin:0 0 .9rem;line-height:1.45}
+.panel .src{font-size:.74rem;color:var(--ink-3);margin:.7rem 0 0;padding-top:.6rem;border-top:1px solid var(--rule)}
+.chart{width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.empty{font-size:.85rem;color:var(--ink-3);padding:2rem 0;text-align:center}
+
+/* svg primitives */
+.axis-line{stroke:var(--rule-strong);stroke-width:1}
+.grid-line{stroke:var(--rule);stroke-width:1}
+.zero-line{stroke:var(--ink-3);stroke-width:1}
+.ref-line{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:4 4}
+.tick{font-size:10.5px;fill:var(--ink-3)}
+.tick.mid{fill:var(--ink-2)}
+.val-label{font-size:10.5px;fill:var(--ink-2)}
+.ref-label{font-size:10px;fill:var(--ink-3)}
+.mark{transition:opacity .12s}
+.chart:hover .mark{opacity:.45}
+.chart .mark:hover{opacity:1}
+
+/* table */
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.42rem .6rem;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+th{font-weight:600;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-bottom-color:var(--rule-strong)}
+tbody tr:hover{background:#f6f5f1}
+td.neg{color:var(--neg)} td.pos{color:var(--pos)}
+.scroll{overflow-x:auto;max-height:22rem;overflow-y:auto}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;background:#16161a;color:#fff;font-size:.78rem;line-height:1.4;padding:.45rem .6rem;border-radius:3px;opacity:0;transition:opacity .1s;z-index:50;max-width:16rem}
+#tip b{font-weight:600}
+#tip .k{color:#b9b8b2}
+
+.takeaway{background:#eef2f7;border-left:2px solid var(--accent);padding:1rem 1.2rem;margin:0 0 1.6rem;font-size:.92rem;color:var(--ink-2)}
+.takeaway b{color:var(--ink)}
+footer{border-top:1px solid var(--rule-strong);padding:1.8rem 0 3rem;margin-top:1rem;font-size:.83rem;color:var(--ink-3)}
+footer a{color:var(--ink-2);border-bottom:none}
+
+@media(max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .kpi{border-right:none;border-bottom:1px solid var(--rule)}
+  .wrap{padding:0 1.1rem}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="dash-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <h1>Credit portfolio risk and the limit decision</h1>
+    <p class="sub">A 30,000-account credit card book: roll rates, a behavioural scorecard built without protected characteristics, and where the expected loss sits.</p>
+    <p class="meta">
+      <a href="../projects/credit-risk.html">Case study</a>
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk">Repository</a>
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk/blob/main/reports/executive-summary.md">Executive summary</a>
+    </p>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filters">
+    <div class="f"><label>Loss given default</label>
+      <input type="range" id="fL" min="0" max="3" step="1" value="2"></div>
+    <div class="f"><label>&nbsp;</label><span id="lgdv" style="font-size:.9rem;color:var(--ink-2)"></span></div>
+    <p class="filter-note">LGD is an assumption, not an observation — the file has no recovery data. Move the slider to see what the expected loss depends on.</p>
+  </div>
+
+  <p class="takeaway"><b>The scorecard is built without sex, education or marital status, and that
+  costs 0.003 of Gini.</b> A model built on behaviour alone performs indistinguishably from one that
+  uses who the customer is — so there is no efficiency argument for using them.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Default escalates with delinquency state</h2>
+      <p class="note">The single strongest input to the scorecard, and the natural basis for IFRS 9 staging.</p>
+      <div class="chart" id="c1"></div>
+      <p class="src">Source: 30,000 accounts, April–September 2005, Taiwan. Current status at the observation point.</p>
+    </section>
+    <section class="panel">
+      <h2>Default rate by utilisation band</h2>
+      <p class="note">Drawn balance over credit limit. Over-limit accounts are kept in, flagged rather than dropped.</p>
+      <div class="chart" id="c2"></div>
+      <p class="src">Source: utilisation at the observation point; 2,115 accounts are over limit.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Is the scorecard calibrated?</h2>
+      <p class="note">Predicted against observed default rate by score band, on the 9,000-account holdout. The dashed line is perfect calibration.</p>
+      <div class="chart" id="c3"></div>
+      <p class="src">Source: holdout sample. Seven of ten bands sit within two standard errors; largest gap 2.8 points.</p>
+    </section>
+    <section class="panel">
+      <h2>Expected loss is concentrated</h2>
+      <p class="note">Cumulative share of expected credit loss against cumulative share of exposure.</p>
+      <div class="chart" id="c4"></div>
+      <p class="src">Source: ECL = PD × LGD × EAD at the LGD selected above.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Delinquency roll rates</h2>
+      <p class="note">Probability of moving from one repayment state to the next month's, pooled across the six observed cycles.</p>
+      <div class="chart" id="c5"></div>
+      <p class="src">Source: PAY_6 through PAY_0 transitions. Rows sum to 1.</p>
+    </section>
+    <section class="panel">
+      <h2>The limit-cut decision</h2>
+      <p class="note">Cutting undrawn headroom on the worst score bands. Precision matters more than depth: the marginal bands trade a large increase in customers affected for a small increase in loss avoided.</p>
+      <div id="tbl"></div>
+      <p class="src">Source: loss avoided against revenue forgone at the selected LGD. Break-even probability of default: 1.64% on the base case.</p>
+    </section>
+  </div>
+
+  <footer>
+    <p>Every figure recomputes from the analysis pipeline in
+      <a href="https://github.com/Lohandesilva/credit-portfolio-risk">credit-portfolio-risk</a>.
+      <a href="../index.html">All work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a></p>
+  </footer>
+</div>
+<script>
+/* Minimal SVG chart kit. No dependencies. */
+(function (g) {
+  var NS = "http://www.w3.org/2000/svg";
+  var tip = null;
+
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  function ensureTip() {
+    if (!tip) { tip = document.createElement("div"); tip.id = "tip"; document.body.appendChild(tip); }
+    return tip;
+  }
+  function showTip(html, ev) {
+    var t = ensureTip();
+    t.innerHTML = html; t.style.opacity = 1;
+    var w = t.offsetWidth, h = t.offsetHeight;
+    var x = ev.clientX + 14, y = ev.clientY - h - 10;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+    if (y < 8) y = ev.clientY + 16;
+    t.style.left = x + "px"; t.style.top = y + "px";
+  }
+  function hideTip() { if (tip) tip.style.opacity = 0; }
+
+  function bind(node, html) {
+    node.addEventListener("mousemove", function (e) { showTip(html, e); });
+    node.addEventListener("mouseleave", hideTip);
+  }
+
+  // ---- formatters -----------------------------------------------------
+  var fmt = {
+    int: function (v) { return Math.round(v).toLocaleString("en-US"); },
+    pct1: function (v) { return (v * 100).toFixed(1) + "%"; },
+    pct0: function (v) { return Math.round(v * 100) + "%"; },
+    pct2: function (v) { return (v * 100).toFixed(2) + "%"; },
+    num1: function (v) { return v.toFixed(1); },
+    num2: function (v) { return v.toFixed(2); },
+    usd: function (v) { return (v < 0 ? "-$" : "$") + Math.abs(Math.round(v)).toLocaleString("en-US"); },
+    usdk: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-$" : "$";
+      if (a >= 1e12) return s + (a / 1e12).toFixed(2) + "tn";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    ntd: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-NT$" : "NT$";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(1) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    brl: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-R$" : "R$";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    }
+  };
+
+  function niceStep(range, n) {
+    if (range <= 0) return 1;
+    var raw = range / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    var step = r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10;
+    return step * mag;
+  }
+
+  // Round the axis outward to a clean step so ticks read 0/10/20 rather than
+  // 0/13/25. Returns the padded bounds alongside the ticks.
+  function axis(lo, hi, n) {
+    if (hi === lo) hi = lo + 1;
+    var step = niceStep(hi - lo, n);
+    var a = Math.floor(lo / step + 1e-9) * step;
+    var b = Math.ceil(hi / step - 1e-9) * step;
+    var out = [];
+    for (var v = a; v <= b + step * 1e-6; v += step) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+    return { ticks: out, lo: a, hi: b };
+  }
+
+  function nice(max) { return axis(0, max, 4).hi; }
+
+  // ---- vertical bars --------------------------------------------------
+  function bars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: 12, b: 42, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var lo = Math.min(0, Math.min.apply(null, vals));
+    var hi = Math.max.apply(null, vals);
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.08, 4);
+    var top = ax.hi, bot = ax.lo;
+    var y = function (v) { return m.t + ih - ((v - bot) / (top - bot)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = f(t);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }, svg);
+
+    var bw = iw / d.length, pad = Math.min(14, bw * 0.28);
+    d.forEach(function (row, i) {
+      var x0 = m.l + i * bw + pad / 2, w = bw - pad;
+      var v = row.value, yy = v >= 0 ? y(v) : y(0), h = Math.abs(y(v) - y(0));
+      var r = el("rect", {
+        class: "mark", x: x0, y: yy, width: w, height: Math.max(1, h),
+        fill: row.color || o.color || "var(--s1)", rx: 1
+      }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(v) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: x0 + w / 2, y: H - m.b + 15, "text-anchor": "middle" }, svg);
+      lb.textContent = row.label;
+      if (o.labels !== false && d.length <= 14) {
+        var vl = el("text", { class: "val-label", x: x0 + w / 2, y: (v >= 0 ? yy - 5 : yy + h + 12), "text-anchor": "middle" }, svg);
+        vl.textContent = f(v);
+      }
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: y(o.reference), y2: y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: W - m.r, y: y(o.reference) - 5, "text-anchor": "end" }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: y(Math.max(bot, 0)), y2: y(Math.max(bot, 0)) }, svg);
+  }
+
+  // ---- horizontal bars -------------------------------------------------
+  function hbars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var rowH = o.rowHeight || 24;
+    var W = 620, m = { t: 8, r: 90, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var hi = Math.max.apply(null, vals), lo = Math.min(0, Math.min.apply(null, vals));
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.04, 4);
+    var top = ax.hi, bot = ax.lo;
+    var iw = W - m.l - m.r;
+    var x = function (v) { return m.l + ((v - bot) / (top - bot)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: x(t), x2: x(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: x(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (row, i) {
+      var yy = m.t + i * rowH + 3, h = rowH - 8;
+      var x0 = row.value >= 0 ? x(0) : x(row.value), w = Math.abs(x(row.value) - x(0));
+      var r = el("rect", { class: "mark", x: x0, y: yy, width: Math.max(1, w), height: h, rx: 1, fill: row.color || o.color || "var(--s1)" }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(row.value) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: m.l - 8, y: yy + h / 2 + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = row.label.length > 26 ? row.label.slice(0, 25) + "…" : row.label;
+      var vl = el("text", { class: "val-label", x: (row.value >= 0 ? x0 + w + 6 : x0 - 6), y: yy + h / 2 + 3.5, "text-anchor": row.value >= 0 ? "start" : "end" }, svg);
+      vl.textContent = row.right !== undefined ? row.right : f(row.value);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: x(0), x2: x(0), y1: m.t, y2: m.t + ih }, svg);
+  }
+
+  // ---- line / area -----------------------------------------------------
+  function line(node, o) {
+    node.innerHTML = "";
+    var series = o.series || [];
+    if (!series.length || !series[0].points.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: o.rightPad || 16, b: 40, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fy = o.formatY || fmt.num1, fx = o.formatX || fmt.int;
+    var allX = [], allY = [];
+    series.forEach(function (s) { s.points.forEach(function (p) { allX.push(p[0]); allY.push(p[1]); }); });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, allX);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, allX);
+    var yA = axis(o.yMin !== undefined ? o.yMin : Math.min(0, Math.min.apply(null, allY)),
+                  o.yMax !== undefined ? o.yMax : Math.max.apply(null, allY) * 1.06, 4);
+    var y0 = o.yMin !== undefined ? o.yMin : yA.lo;
+    var y1 = o.yMax !== undefined ? o.yMax : yA.hi;
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0-1e-9&&t<=y1+1e-9;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, o.xTicks || 5).ticks.filter(function(t){return t>=x0-1e-9&&t<=x1+1e-9;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    series.forEach(function (s, si) {
+      var col = s.color || ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"][si % 4];
+      if (s.band) {
+        var up = s.band.map(function (p) { return X(p[0]) + "," + Y(p[2]); });
+        var dn = s.band.slice().reverse().map(function (p) { return X(p[0]) + "," + Y(p[1]); });
+        el("polygon", { points: up.concat(dn).join(" "), fill: col, opacity: .12 }, svg);
+      }
+      var pts = s.points.map(function (p) { return X(p[0]) + "," + Y(p[1]); }).join(" ");
+      el("polyline", { points: pts, fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+      if (s.label) {
+        var last = s.points[s.points.length - 1];
+        var lb = el("text", { class: "val-label", x: X(last[0]) + 5, y: Y(last[1]) + 3.5, fill: col }, svg);
+        lb.textContent = s.label;
+      }
+      s.points.forEach(function (p) {
+        var c = el("circle", { class: "mark", cx: X(p[0]), cy: Y(p[1]), r: 8, fill: "transparent" }, svg);
+        bind(c, "<b>" + (s.name ? s.name + "<br>" : "") + fx(p[0]) + "</b><br>" + fy(p[1]) + (p[2] ? "<br><span class='k'>" + p[2] + "</span>" : ""));
+      });
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: Y(o.reference), y2: Y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: m.l + 4, y: Y(o.reference) - 5 }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: Y(Math.max(y0, 0)), y2: Y(Math.max(y0, 0)) }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- scatter ---------------------------------------------------------
+  function scatter(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 260, m = { t: 14, r: 16, b: 44, l: 54 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fx = o.formatX || fmt.num1, fy = o.formatY || fmt.num1;
+    var xs = d.map(function (p) { return p.x; }), ys = d.map(function (p) { return p.y; });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, xs);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, xs);
+    var y0 = o.yMin !== undefined ? o.yMin : Math.min.apply(null, ys);
+    var y1 = o.yMax !== undefined ? o.yMax : Math.max.apply(null, ys);
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0&&t<=y1;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, 5).ticks.filter(function(t){return t>=x0&&t<=x1;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    var rMax = o.sizeMax || 0;
+    d.forEach(function (p) {
+      var r = rMax && p.size ? 2.5 + 7 * Math.sqrt(p.size / rMax) : (o.radius || 3.4);
+      var c = el("circle", {
+        class: "mark", cx: X(p.x), cy: Y(p.y), r: r,
+        fill: p.color || o.color || "var(--s1)", opacity: o.opacity || .62,
+        stroke: "#fff", "stroke-width": .6
+      }, svg);
+      bind(c, "<b>" + (p.label || "") + "</b><br><span class='k'>" + (o.xName || "x") + "</span> " + fx(p.x) +
+        "<br><span class='k'>" + (o.yName || "y") + "</span> " + fy(p.y) + (p.tip ? "<br>" + p.tip : ""));
+    });
+
+    if (o.zeroLine && y0 < 0 && y1 > 0) {
+      el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0) }, svg);
+    }
+    if (o.fit) {
+      el("line", { x1: X(o.fit[0][0]), y1: Y(o.fit[0][1]), x2: X(o.fit[1][0]), y2: Y(o.fit[1][1]), stroke: "var(--ink-3)", "stroke-width": 1.4, "stroke-dasharray": "5 4" }, svg);
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- range plot (p10 / q1 / median / q3 / p90) ------------------------
+  function ranges(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    var rowH = 26, W = 620, m = { t: 8, r: 60, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct0;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { lo = Math.min(lo, r.p10); hi = Math.max(hi, r.p90); });
+    var X = function (v) { return m.l + ((v - lo) / (hi - lo || 1)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(lo, hi, 4).ticks.filter(function(t){return t>=lo&&t<=hi;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      el("line", { x1: X(r.p10), x2: X(r.p90), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.5 }, svg);
+      var box = el("rect", { class: "mark", x: X(r.q1), y: cy - 6, width: Math.max(2, X(r.q3) - X(r.q1)), height: 12, fill: "var(--s1)", opacity: .3, rx: 1 }, svg);
+      var dot = el("circle", { class: "mark", cx: X(r.median), cy: cy, r: 4, fill: "var(--s1)" }, svg);
+      var html = "<b>" + r.label + "</b><br><span class='k'>median</span> " + f(r.median) +
+        "<br><span class='k'>IQR</span> " + f(r.q1) + " to " + f(r.q3) +
+        "<br><span class='k'>p10-p90</span> " + f(r.p10) + " to " + f(r.p90) +
+        (r.n ? "<br><span class='k'>n</span> " + r.n : "");
+      bind(box, html); bind(dot, html);
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label;
+      var vl = el("text", { class: "val-label", x: W - m.r + 6, y: cy + 3.5 }, svg);
+      vl.textContent = f(r.median);
+    });
+  }
+
+  // ---- heatmap ---------------------------------------------------------
+  function heatmap(node, o) {
+    node.innerHTML = "";
+    var rows = o.rows, cols = o.cols, vals = o.values;
+    var cell = 42, W = 620, m = { t: 30, r: 10, b: 34, l: 108 };
+    var gw = Math.min(cell, (W - m.l - m.r) / cols.length);
+    var H = rows.length * cell + m.t + m.b;
+    var f = o.format || fmt.pct0;
+    var max = 0; vals.forEach(function (r) { r.forEach(function (v) { if (v > max) max = v; }); });
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    cols.forEach(function (c, j) {
+      var tx = el("text", { class: "tick", x: m.l + j * gw + gw / 2, y: m.t - 9, "text-anchor": "middle" }, svg);
+      tx.textContent = c;
+    });
+    rows.forEach(function (r, i) {
+      var tx = el("text", { class: "tick", x: m.l - 8, y: m.t + i * cell + cell / 2 + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = r;
+      cols.forEach(function (c, j) {
+        var v = vals[i][j], t = max ? v / max : 0;
+        var rect = el("rect", {
+          class: "mark", x: m.l + j * gw + 1, y: m.t + i * cell + 1,
+          width: gw - 2, height: cell - 2, rx: 1,
+          fill: "var(--s1)", opacity: 0.06 + 0.9 * Math.pow(t, 0.6)
+        }, svg);
+        bind(rect, "<b>" + r + " → " + c + "</b><br>" + f(v));
+        if (v > 0.005) {
+          var lab = el("text", {
+            x: m.l + j * gw + gw / 2, y: m.t + i * cell + cell / 2 + 3.5,
+            "text-anchor": "middle", "font-size": 10.5,
+            fill: t > 0.55 ? "#fff" : "var(--ink-2)"
+          }, svg);
+          lab.textContent = f(v);
+        }
+      });
+    });
+    var xl = el("text", { class: "tick mid", x: m.l + (cols.length * gw) / 2, y: H - 8, "text-anchor": "middle" }, svg);
+    xl.textContent = o.xLabel || "";
+  }
+
+
+  // ---- dumbbell: two values per row, connected ------------------------
+  function dumbbell(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows.</p>'; return; }
+    var rowH = o.rowHeight || 30, W = 620, m = { t: 26, r: 70, b: 30, l: o.labelWidth || 118 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct1;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { [r.a, r.b].forEach(function (v) { if (v !== null) hi = Math.max(hi, v); }); });
+    var ax = axis(lo, hi * 1.06, 4), X = function (v) { return m.l + ((v - ax.lo) / (ax.hi - ax.lo)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 10, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+    // legend
+    var lg = [[o.aName || "A", o.aColor || "var(--s3)"], [o.bName || "B", o.bColor || "var(--s2)"]];
+    lg.forEach(function (p, i) {
+      el("circle", { cx: m.l + i * 132 + 4, cy: 10, r: 4.5, fill: p[1] }, svg);
+      var t = el("text", { class: "tick mid", x: m.l + i * 132 + 14, y: 13.5 }, svg);
+      t.textContent = p[0];
+    });
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      if (r.a !== null && r.b !== null) {
+        el("line", { x1: X(r.a), x2: X(r.b), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.6 }, svg);
+      }
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label;
+      [["a", o.aColor || "var(--s3)", o.aName], ["b", o.bColor || "var(--s2)", o.bName]].forEach(function (p) {
+        if (r[p[0]] === null) return;
+        var c = el("circle", { class: "mark", cx: X(r[p[0]]), cy: cy, r: 5.5, fill: p[1], stroke: "#fff", "stroke-width": 1 }, svg);
+        bind(c, "<b>" + r.label + "</b><br><span class='k'>" + p[2] + "</span> " + f(r[p[0]]) +
+          (r.tip ? "<br>" + r.tip : ""));
+      });
+      if (r.right) {
+        var vl = el("text", { class: "val-label", x: W - m.r + 8, y: cy + 3.5 }, svg);
+        vl.textContent = r.right;
+      }
+      if (r.note) {
+        var nt = el("text", { class: "ref-label", x: m.l + 4, y: cy + 3.5 }, svg);
+        nt.textContent = r.note;
+      }
+    });
+  }
+
+  // ---- table -----------------------------------------------------------
+  function table(node, o) {
+    var rows = o.rows || [];
+    if (!rows.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var h = "<div class='scroll'><table><thead><tr>";
+    o.columns.forEach(function (c) { h += "<th>" + c.label + "</th>"; });
+    h += "</tr></thead><tbody>";
+    rows.forEach(function (r) {
+      h += "<tr>";
+      o.columns.forEach(function (c) {
+        var v = r[c.key];
+        var cls = c.signed ? (v < 0 ? " class='neg'" : v > 0 ? " class='pos'" : "") : "";
+        h += "<td" + cls + ">" + (c.format ? c.format(v, r) : v) + "</td>";
+      });
+      h += "</tr>";
+    });
+    node.innerHTML = h + "</tbody></table></div>";
+  }
+
+  function kpis(node, items) {
+    node.innerHTML = items.map(function (k) {
+      return "<div class='kpi" + (k.hero ? " hero" : "") + "'><span class='v'>" + k.value + "</span>" +
+        "<span class='l'>" + k.label + "</span>" +
+        (k.delta ? "<span class='d " + (k.deltaClass || "") + "'>" + k.delta + "</span>" : "") + "</div>";
+    }).join("");
+  }
+
+  g.Kit = { bars: bars, hbars: hbars, line: line, scatter: scatter, ranges: ranges, heatmap: heatmap, dumbbell: dumbbell, table: table, kpis: kpis, fmt: fmt };
+})(window);
+
+</script>
+<script>
+
+var D = {"bands":[{"score_band":1,"accounts":3000,"defaults":2078,"observed_default_rate":0.692667,"predicted_pd":0.116981,"drawn_balance":161896297.0,"undrawn_limit":93800380.0,"ead":171276335.0,"ecl":14846631.930145,"ecl_rate_on_ead":0.086682,"share_of_ead":0.090686,"share_of_ecl":0.318935,"cumulative_share_of_ecl":0.318935,"cumulative_share_of_accounts":0.1},{"score_band":2,"accounts":3000,"defaults":1272,"observed_default_rate":0.424,"predicted_pd":0.072513,"drawn_balance":132986252.0,"undrawn_limit":249493534.0,"ead":157935605.4,"ecl":8885219.175361,"ecl_rate_on_ead":0.056258,"share_of_ead":0.083623,"share_of_ecl":0.190872,"cumulative_share_of_ecl":0.509807,"cumulative_share_of_accounts":0.2},{"score_band":3,"accounts":3000,"defaults":739,"observed_default_rate":0.246333,"predicted_pd":0.043511,"drawn_balance":76166776.0,"undrawn_limit":329023819.0,"ead":109069157.9,"ecl":3535899.578955,"ecl_rate_on_ead":0.032419,"share_of_ead":0.057749,"share_of_ecl":0.075958,"cumulative_share_of_ecl":0.585765,"cumulative_share_of_accounts":0.3},{"score_band":4,"accounts":3000,"defaults":651,"observed_default_rate":0.217,"predicted_pd":0.030579,"drawn_balance":67568368.0,"undrawn_limit":332421943.0,"ead":100810562.3,"ecl":2313219.100878,"ecl_rate_on_ead":0.022946,"share_of_ead":0.053377,"share_of_ecl":0.049692,"cumulative_share_of_ecl":0.635457,"cumulative_share_of_accounts":0.4},{"score_band":5,"accounts":3000,"defaults":483,"observed_default_rate":0.161,"predicted_pd":0.024471,"drawn_balance":88238734.0,"undrawn_limit":332616295.0,"ead":121500363.5,"ecl":2219323.545071,"ecl_rate_on_ead":0.018266,"share_of_ead":0.064331,"share_of_ecl":0.047675,"cumulative_share_of_ecl":0.683133,"cumulative_share_of_accounts":0.5},{"score_band":6,"accounts":3000,"defaults":395,"observed_default_rate":0.131667,"predicted_pd":0.021268,"drawn_balance":138096212.0,"undrawn_limit":257449960.0,"ead":163841208.0,"ecl":2607372.141443,"ecl_rate_on_ead":0.015914,"share_of_ead":0.08675,"share_of_ecl":0.056011,"cumulative_share_of_ecl":0.739144,"cumulative_share_of_accounts":0.6},{"score_band":7,"accounts":3000,"defaults":345,"observed_default_rate":0.115,"predicted_pd":0.019067,"drawn_balance":168770354.0,"undrawn_limit":311019968.0,"ead":199872350.8,"ecl":2853462.460962,"ecl_rate_on_ead":0.014276,"share_of_ead":0.105827,"share_of_ecl":0.061298,"cumulative_share_of_ecl":0.800442,"cumulative_share_of_accounts":0.7},{"score_band":8,"accounts":3000,"defaults":280,"observed_default_rate":0.093333,"predicted_pd":0.016852,"drawn_balance":224091752.0,"undrawn_limit":411153708.0,"ead":265207122.8,"ecl":3340743.679727,"ecl_rate_on_ead":0.012597,"share_of_ead":0.14042,"share_of_ecl":0.071766,"cumulative_share_of_ecl":0.872208,"cumulative_share_of_accounts":0.8},{"score_band":9,"accounts":3000,"defaults":245,"observed_default_rate":0.081667,"predicted_pd":0.01471,"drawn_balance":256373315.0,"undrawn_limit":505165864.0,"ead":306889901.4,"ecl":3384638.704656,"ecl_rate_on_ead":0.011029,"share_of_ead":0.16249,"share_of_ecl":0.072709,"cumulative_share_of_ecl":0.944917,"cumulative_share_of_accounts":0.9},{"score_band":10,"accounts":3000,"defaults":148,"observed_default_rate":0.049333,"predicted_pd":0.011634,"drawn_balance":223193197.0,"undrawn_limit":690719788.0,"ead":292265175.8,"ecl":2564160.53179,"ecl_rate_on_ead":0.008773,"share_of_ead":0.154747,"share_of_ecl":0.055083,"cumulative_share_of_ecl":1.0,"cumulative_share_of_accounts":1.0}],"util":[{"utilisation_band":"Credit balance","accounts":590,"defaults":109,"default_rate":0.184746,"drawn_balance":0.0,"undrawn_limit":129210000.0,"mean_limit":219000.0,"median_limit":200000.0,"mean_utilisation":-0.008448,"delinquent_share":0.662712,"share_of_accounts":0.019667,"share_of_drawn":0.0,"lift_vs_book":0.835198},{"utilisation_band":"Zero balance","accounts":2008,"defaults":534,"default_rate":0.265936,"drawn_balance":0.0,"undrawn_limit":415810000.0,"mean_limit":207076.693227,"median_limit":200000.0,"mean_utilisation":0.0,"delinquent_share":0.664343,"share_of_accounts":0.066933,"share_of_drawn":0.0,"lift_vs_book":1.202243},{"utilisation_band":"0-10%","accounts":8644,"defaults":1468,"default_rate":0.169829,"drawn_balance":51132407.0,"undrawn_limit":1936477593.0,"mean_limit":229940.999537,"median_limit":210000.0,"mean_utilisation":0.027383,"delinquent_share":0.197015,"share_of_accounts":0.288133,"share_of_drawn":0.033259,"lift_vs_book":0.767761},{"utilisation_band":"10-30%","accounts":3551,"defaults":597,"default_rate":0.168122,"drawn_balance":120811058.0,"undrawn_limit":531344942.0,"mean_limit":183654.181921,"median_limit":150000.0,"mean_utilisation":0.190019,"delinquent_share":0.272599,"share_of_accounts":0.118367,"share_of_drawn":0.078582,"lift_vs_book":0.760044},{"utilisation_band":"30-50%","accounts":2833,"defaults":638,"default_rate":0.225203,"drawn_balance":167045234.0,"undrawn_limit":250514766.0,"mean_limit":147391.457819,"median_limit":110000.0,"mean_utilisation":0.400368,"delinquent_share":0.368514,"share_of_accounts":0.094433,"share_of_drawn":0.108656,"lift_vs_book":1.018097},{"utilisation_band":"50-70%","accounts":2852,"defaults":727,"default_rate":0.254909,"drawn_balance":229025898.0,"undrawn_limit":155154102.0,"mean_limit":134705.469846,"median_limit":100000.0,"mean_utilisation":0.598435,"delinquent_share":0.385694,"share_of_accounts":0.095067,"share_of_drawn":0.148971,"lift_vs_book":1.152391},{"utilisation_band":"70-90%","accounts":3474,"defaults":973,"default_rate":0.280081,"drawn_balance":312276608.0,"undrawn_limit":77083392.0,"mean_limit":112078.295912,"median_limit":70000.0,"mean_utilisation":0.808167,"delinquent_share":0.423143,"share_of_accounts":0.1158,"share_of_drawn":0.203122,"lift_vs_book":1.266187},{"utilisation_band":"90-100%","accounts":3933,"defaults":954,"default_rate":0.242563,"drawn_balance":400539536.0,"undrawn_limit":17270464.0,"mean_limit":106231.884058,"median_limit":70000.0,"mean_utilisation":0.957287,"delinquent_share":0.30689,"share_of_accounts":0.1311,"share_of_drawn":0.260534,"lift_vs_book":1.096577},{"utilisation_band":"Over limit","accounts":2115,"defaults":636,"default_rate":0.300709,"drawn_balance":256550516.0,"undrawn_limit":0.0,"mean_limit":109141.219858,"median_limit":80000.0,"mean_utilisation":1.131495,"delinquent_share":0.402837,"share_of_accounts":0.0705,"share_of_drawn":0.166875,"lift_vs_book":1.359445}],"delq":[{"state":"No consumption","accounts":2759,"defaults":365,"default_rate":0.132294,"drawn_exposure":24393445.0,"mean_limit":250391.446176,"share_of_accounts":0.091967,"share_of_defaults":0.055003,"lift_vs_book":0.598076},{"state":"Paid in full","accounts":5686,"defaults":954,"default_rate":0.167781,"drawn_exposure":59621483.0,"mean_limit":206769.257826,"share_of_accounts":0.189533,"share_of_defaults":0.143761,"lift_vs_book":0.758501},{"state":"Revolving","accounts":14737,"defaults":1888,"default_rate":0.128113,"drawn_exposure":1155644437.0,"mean_limit":154265.025446,"share_of_accounts":0.491233,"share_of_defaults":0.284509,"lift_vs_book":0.579172},{"state":"1 cycle past due","accounts":3688,"defaults":1252,"default_rate":0.339479,"drawn_exposure":100683748.0,"mean_limit":148796.095445,"share_of_accounts":0.122933,"share_of_defaults":0.188668,"lift_vs_book":1.534717},{"state":"2 cycles past due","accounts":2667,"defaults":1844,"default_rate":0.691414,"drawn_exposure":173056954.0,"mean_limit":111494.56318,"share_of_accounts":0.0889,"share_of_defaults":0.277878,"lift_vs_book":3.125739},{"state":"3+ cycles past due","accounts":463,"defaults":333,"default_rate":0.719222,"drawn_exposure":23981190.0,"mean_limit":83131.74946,"share_of_accounts":0.015433,"share_of_defaults":0.050181,"lift_vs_book":3.251458}],"calib":[{"band":1,"accounts":900,"observed":0.682222,"predicted":0.688664,"se":0.01552,"difference":0.006441,"within_2se":true},{"band":2,"accounts":900,"observed":0.432222,"predicted":0.421073,"se":0.016513,"difference":-0.011149,"within_2se":true},{"band":3,"accounts":900,"observed":0.238889,"predicted":0.254063,"se":0.014213,"difference":0.015175,"within_2se":true},{"band":4,"accounts":900,"observed":0.206667,"predicted":0.178482,"se":0.013497,"difference":-0.028185,"within_2se":false},{"band":5,"accounts":900,"observed":0.168889,"predicted":0.143032,"se":0.012488,"difference":-0.025856,"within_2se":false},{"band":6,"accounts":900,"observed":0.138889,"predicted":0.124625,"se":0.011528,"difference":-0.014264,"within_2se":true},{"band":7,"accounts":900,"observed":0.125556,"predicted":0.11208,"se":0.011045,"difference":-0.013475,"within_2se":true},{"band":8,"accounts":900,"observed":0.087778,"predicted":0.099625,"se":0.009432,"difference":0.011847,"within_2se":true},{"band":9,"accounts":900,"observed":0.078889,"predicted":0.087124,"se":0.008986,"difference":0.008235,"within_2se":true},{"band":10,"accounts":900,"observed":0.052222,"predicted":0.068801,"se":0.007416,"difference":0.016579,"within_2se":false}],"strat":[{"bands_targeted":1,"accounts_targeted":3000,"precision_in_target":0.6927,"share_of_defaults_captured":0.3131,"loss_avoided":711717.7791,"revenue_forgone":92597.9665,"net_value":619119.8126,"benefit_cost_ratio":7.6861},{"bands_targeted":2,"accounts_targeted":6000,"precision_in_target":0.5583,"share_of_defaults_captured":0.5048,"loss_avoided":1934576.7485,"revenue_forgone":374659.0946,"net_value":1559917.6539,"benefit_cost_ratio":5.1636},{"bands_targeted":3,"accounts_targeted":9000,"precision_in_target":0.4543,"share_of_defaults_captured":0.6162,"loss_avoided":2982466.3368,"revenue_forgone":761443.5558,"net_value":2221022.781,"benefit_cost_ratio":3.9169},{"bands_targeted":4,"accounts_targeted":12000,"precision_in_target":0.395,"share_of_defaults_captured":0.7143,"loss_avoided":3748063.5152,"revenue_forgone":1157878.1396,"net_value":2590185.3756,"benefit_cost_ratio":3.237},{"bands_targeted":5,"accounts_targeted":15000,"precision_in_target":0.3482,"share_of_defaults_captured":0.7871,"loss_avoided":4350375.0828,"revenue_forgone":1556829.0252,"net_value":2793546.0575,"benefit_cost_ratio":2.7944},{"bands_targeted":6,"accounts_targeted":18000,"precision_in_target":0.3121,"share_of_defaults_captured":0.8466,"loss_avoided":4750446.9603,"revenue_forgone":1863629.4587,"net_value":2886817.5015,"benefit_cost_ratio":2.549},{"bands_targeted":7,"accounts_targeted":21000,"precision_in_target":0.284,"share_of_defaults_captured":0.8986,"loss_avoided":5178410.0637,"revenue_forgone":2232214.6889,"net_value":2946195.3749,"benefit_cost_ratio":2.3199},{"bands_targeted":8,"accounts_targeted":24000,"precision_in_target":0.2601,"share_of_defaults_captured":0.9408,"loss_avoided":5681363.0203,"revenue_forgone":2721209.5736,"net_value":2960153.4467,"benefit_cost_ratio":2.0878},{"bands_targeted":9,"accounts_targeted":27000,"precision_in_target":0.2403,"share_of_defaults_captured":0.9777,"loss_avoided":6214252.3816,"revenue_forgone":3318402.6483,"net_value":2895849.7333,"benefit_cost_ratio":1.8727},{"bands_targeted":10,"accounts_targeted":30000,"precision_in_target":0.2212,"share_of_defaults_captured":1.0,"loss_avoided":6789467.9376,"revenue_forgone":4146425.7134,"net_value":2643042.2241,"benefit_cost_ratio":1.6374}],"sweep":[{"lgd":0.65,"ccf":0.0,"ead":1537381257.0,"ecl":34238378.542941,"ecl_as_pct_of_ead":0.022271,"ecl_as_pct_of_drawn":0.022271},{"lgd":0.65,"ccf":0.1,"ead":1888667782.9,"ecl":40343914.73579,"ecl_as_pct_of_ead":0.021361,"ecl_as_pct_of_drawn":0.026242},{"lgd":0.65,"ccf":0.2,"ead":2239954308.8,"ecl":46449450.928638,"ecl_as_pct_of_ead":0.020737,"ecl_as_pct_of_drawn":0.030213},{"lgd":0.7,"ccf":0.0,"ead":1537381257.0,"ecl":36872099.969321,"ecl_as_pct_of_ead":0.023984,"ecl_as_pct_of_drawn":0.023984},{"lgd":0.7,"ccf":0.1,"ead":1888667782.9,"ecl":43447292.792389,"ecl_as_pct_of_ead":0.023004,"ecl_as_pct_of_drawn":0.028261},{"lgd":0.7,"ccf":0.2,"ead":2239954308.8,"ecl":50022485.615456,"ecl_as_pct_of_ead":0.022332,"ecl_as_pct_of_drawn":0.032537},{"lgd":0.75,"ccf":0.0,"ead":1537381257.0,"ecl":39505821.395701,"ecl_as_pct_of_ead":0.025697,"ecl_as_pct_of_drawn":0.025697},{"lgd":0.75,"ccf":0.1,"ead":1888667782.9,"ecl":46550670.848988,"ecl_as_pct_of_ead":0.024647,"ecl_as_pct_of_drawn":0.030279},{"lgd":0.75,"ccf":0.2,"ead":2239954308.8,"ecl":53595520.302275,"ecl_as_pct_of_ead":0.023927,"ecl_as_pct_of_drawn":0.034862},{"lgd":0.8,"ccf":0.0,"ead":1537381257.0,"ecl":42139542.822081,"ecl_as_pct_of_ead":0.02741,"ecl_as_pct_of_drawn":0.02741},{"lgd":0.8,"ccf":0.1,"ead":1888667782.9,"ecl":49654048.905587,"ecl_as_pct_of_ead":0.026291,"ecl_as_pct_of_drawn":0.032298},{"lgd":0.8,"ccf":0.2,"ead":2239954308.8,"ecl":57168554.989093,"ecl_as_pct_of_ead":0.025522,"ecl_as_pct_of_drawn":0.037186}],"lgds":[0.65,0.7,0.75,0.8],"states":["No consumption","Paid in full","Revolving","1-2 cycles past due","3+ cycles past due"],"toStates":["None","Paid","Revolving","1-2 DPD","3+ DPD"],"matrix":[[0.8415016224683899,0.0826339935101264,0.0610383797694975,0.0148260042519861,0.0],[0.074703108627314,0.7541914076143905,0.1308941669577366,0.0402113168005588,0.0],[6.111348774674571e-05,0.0535201368942125,0.8844496730428405,0.0619690765752001,0.0],[0.0004040077569489,0.0742566257272139,0.2273755656108597,0.6366354234001292,0.061328377504848],[0.0,0.0294117647058823,0.0746054519368723,0.3185078909612625,0.5774748923959828]],"fair":[{"model":"Behavioural only (production)","auc_test":0.769400560476202,"gini_test":0.538801120952404,"ks_test":0.4135271584163261,"features_used":10},{"model":"Behavioural plus demographics (comparison only)","auc_test":0.7708846608138678,"gini_test":0.5417693216277355,"ks_test":0.4168932832931528,"features_used":11}]};
+var F = Kit.fmt;
+
+function render(){
+  var li = +document.getElementById('fL').value, lgd = D.lgds[li];
+  var sw = D.sweep.filter(function(s){return Math.abs(s.lgd-lgd)<1e-9;})[0] || D.sweep[0];
+  document.getElementById('lgdv').textContent = F.pct0(lgd)+' assumed';
+
+  var accounts = D.bands.reduce(function(a,b){return a+b.accounts;},0);
+  var defaults = D.bands.reduce(function(a,b){return a+b.defaults;},0);
+  var ead = D.bands.reduce(function(a,b){return a+b.ead;},0);
+  var baseLgd = D.bands.reduce(function(a,b){return a+b.ecl;},0)/ (ead||1);
+
+  Kit.kpis(document.getElementById('kpis'), [
+    {value:F.int(accounts), label:'Accounts on the book'},
+    {value:F.ntd(ead), label:'Exposure at default'},
+    {value:F.pct1(defaults/accounts), label:'Observed default rate', hero:true},
+    {value:F.ntd(sw.ecl), label:'Expected credit loss',
+     delta: F.pct2(sw.ecl_as_pct_of_ead)+' of exposure'},
+    {value:'0.539', label:'Holdout Gini', hero:true, delta:'0.003 given up on fair-lending grounds'}
+  ]);
+
+  Kit.bars(document.getElementById('c1'), {
+    data: D.delq.map(function(d){return {label:d.state, value:d.default_rate,
+      color: d.default_rate>0.4?'var(--neg)':d.default_rate>0.25?'var(--s2)':'var(--s1)',
+      tip: F.int(d.accounts)+' accounts, lift '+F.num2(d.lift_vs_book)+'x'};}),
+    format:F.pct0, tipLabel:'default rate ', height:220});
+
+  Kit.bars(document.getElementById('c2'), {
+    data: D.util.map(function(d){return {label:d.utilisation_band, value:d.default_rate,
+      color: d.default_rate>0.3?'var(--s2)':'var(--s1)',
+      tip: F.int(d.accounts)+' accounts, '+F.ntd(d.drawn_balance)+' drawn'};}),
+    format:F.pct0, tipLabel:'default rate ', labels:false, height:220});
+
+  var mx = 0; D.calib.forEach(function(c){ mx=Math.max(mx,c.observed,c.predicted); });
+  mx = Math.ceil(mx*10)/10;
+  Kit.scatter(document.getElementById('c3'), {
+    data: D.calib.map(function(c){return {x:c.predicted, y:c.observed, label:'Band '+c.band,
+      color: c.within_2se===true||c.within_2se==='True'?'var(--s1)':'var(--s2)',
+      tip: F.int(c.accounts)+' accounts<br>gap '+F.pct1(c.difference)};}),
+    radius:5, opacity:.9, formatX:F.pct0, formatY:F.pct0,
+    xName:'predicted', yName:'observed', xMin:0, xMax:mx, yMin:0, yMax:mx,
+    fit:[[0,0],[mx,mx]], xLabel:'Predicted probability of default', height:250});
+
+  var pts=[[0,0]];
+  D.bands.forEach(function(b){ pts.push([b.cumulative_share_of_accounts, b.cumulative_share_of_ecl]); });
+  Kit.line(document.getElementById('c4'), {
+    series:[{points:pts, color:'var(--s1)'},{points:[[0,0],[1,1]], color:'var(--rule-strong)'}],
+    formatX:F.pct0, formatY:F.pct0, xMin:0, xMax:1, yMin:0, yMax:1,
+    xLabel:'Cumulative share of accounts, worst score first', height:250});
+
+  Kit.heatmap(document.getElementById('c5'), {
+    rows:D.states, cols:D.toStates, values:D.matrix, format:F.pct0,
+    xLabel:'State next month'});
+
+  var scale = lgd / (D.sweep.filter(function(s){return Math.abs(s.lgd-0.75)<1e-9;})[0]||{lgd:0.75}).lgd;
+  Kit.table(document.getElementById('tbl'), {
+    columns:[
+      {key:'bands_targeted',label:'Bands'},
+      {key:'accounts_targeted',label:'Accounts',format:F.int},
+      {key:'precision_in_target',label:'Precision',format:F.pct0},
+      {key:'share_of_defaults_captured',label:'Caught',format:F.pct0},
+      {key:'loss_avoided',label:'Avoided',format:function(v){return F.ntd(v*scale);}},
+      {key:'revenue_forgone',label:'Forgone',format:F.ntd},
+      {key:'net_value',label:'Net',format:function(v,row){return F.ntd(row.loss_avoided*scale-row.revenue_forgone);}}
+    ],
+    rows: D.strat});
+}
+document.getElementById('fL').addEventListener('input', render);
+render();
+
+</script>
+</body>
+</html>

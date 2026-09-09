@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinic capacity and non-attendance dashboard — Lohan De Silva</title>
+<meta name="description" content="110,521 outpatient appointments: how much capacity non-attendance takes, what actually predicts it, and what a service manager can do about it.">
+<style>
+:root{
+  --paper:#fbfaf7; --panel:#ffffff; --ink:#16161a; --ink-2:#45443f; --ink-3:#74736c;
+  --rule:#e0ded5; --rule-strong:#c9c6ba; --accent:#1c4e80;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --pos:#0ca30c; --neg:#d03b3b; --warn:#fab219;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:78rem;margin:0 auto;padding:0 1.6rem}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(28,78,128,.28)}
+a:hover{border-bottom-color:var(--accent)}
+
+.dash-head{padding:2.4rem 0 1.4rem;border-bottom:1px solid var(--rule-strong)}
+.backlink{display:inline-block;font-size:.84rem;color:var(--ink-3);border-bottom:none;margin-bottom:1.2rem}
+.backlink:hover{color:var(--accent)}
+.dash-head h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.7rem,3.6vw,2.3rem);line-height:1.15;letter-spacing:-.015em;margin:0 0 .5rem;max-width:44rem}
+.dash-head .sub{color:var(--ink-2);margin:0 0 1rem;max-width:46rem;font-size:.98rem}
+.dash-head .meta{font-size:.83rem;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:0 1.3rem}
+.dash-head .meta a{border-bottom:none;color:var(--ink-2)}
+
+/* KPI row */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0;border-bottom:1px solid var(--rule);margin:0 0 1.6rem}
+.kpi{padding:1.4rem 1.2rem 1.3rem;border-right:1px solid var(--rule)}
+.kpi:last-child{border-right:none}
+.kpi.hero{background:#f2f5f9}
+.kpi .v{font-family:var(--serif);font-size:1.75rem;line-height:1.05;letter-spacing:-.02em;display:block}
+.kpi .l{font-size:.78rem;color:var(--ink-3);display:block;margin-top:.45rem;line-height:1.35}
+.kpi .d{font-size:.75rem;margin-top:.3rem;display:block}
+.kpi .d.pos{color:var(--pos)} .kpi .d.neg{color:var(--neg)}
+
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:flex-end;padding:0 0 1.4rem;border-bottom:1px solid var(--rule);margin-bottom:1.6rem}
+.filters .f{display:flex;flex-direction:column;gap:.25rem}
+.filters label{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.filters input[type=range]{width:11rem;accent-color:var(--accent)}
+.filters select{font-family:var(--sans);font-size:.88rem;padding:.36rem .5rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink);border-radius:2px;min-width:9.5rem}
+.filters button{font-family:var(--sans);font-size:.82rem;padding:.42rem .8rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink-2);border-radius:2px;cursor:pointer}
+.filters button:hover{border-color:var(--accent);color:var(--accent)}
+.filter-note{font-size:.8rem;color:var(--ink-3);margin-left:auto}
+
+/* panels */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.6rem;margin-bottom:1.6rem;align-items:start}
+.grid.one{grid-template-columns:1fr}
+.panel{background:var(--panel);border:1px solid var(--rule);padding:1.2rem 1.3rem 1rem}
+.panel h2{font-family:var(--serif);font-weight:400;font-size:1.12rem;line-height:1.3;margin:0 0 .2rem}
+.panel .note{font-size:.82rem;color:var(--ink-3);margin:0 0 .9rem;line-height:1.45}
+.panel .src{font-size:.74rem;color:var(--ink-3);margin:.7rem 0 0;padding-top:.6rem;border-top:1px solid var(--rule)}
+.chart{width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.empty{font-size:.85rem;color:var(--ink-3);padding:2rem 0;text-align:center}
+
+/* svg primitives */
+.axis-line{stroke:var(--rule-strong);stroke-width:1}
+.grid-line{stroke:var(--rule);stroke-width:1}
+.zero-line{stroke:var(--ink-3);stroke-width:1}
+.ref-line{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:4 4}
+.tick{font-size:10.5px;fill:var(--ink-3)}
+.tick.mid{fill:var(--ink-2)}
+.val-label{font-size:10.5px;fill:var(--ink-2)}
+.ref-label{font-size:10px;fill:var(--ink-3)}
+.mark{transition:opacity .12s}
+.chart:hover .mark{opacity:.45}
+.chart .mark:hover{opacity:1}
+
+/* table */
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.42rem .6rem;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+th{font-weight:600;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-bottom-color:var(--rule-strong)}
+tbody tr:hover{background:#f6f5f1}
+td.neg{color:var(--neg)} td.pos{color:var(--pos)}
+.scroll{overflow-x:auto;max-height:22rem;overflow-y:auto}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;background:#16161a;color:#fff;font-size:.78rem;line-height:1.4;padding:.45rem .6rem;border-radius:3px;opacity:0;transition:opacity .1s;z-index:50;max-width:16rem}
+#tip b{font-weight:600}
+#tip .k{color:#b9b8b2}
+
+.takeaway{background:#eef2f7;border-left:2px solid var(--accent);padding:1rem 1.2rem;margin:0 0 1.6rem;font-size:.92rem;color:var(--ink-2)}
+.takeaway b{color:var(--ink)}
+footer{border-top:1px solid var(--rule-strong);padding:1.8rem 0 3rem;margin-top:1rem;font-size:.83rem;color:var(--ink-3)}
+footer a{color:var(--ink-2);border-bottom:none}
+
+@media(max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .kpi{border-right:none;border-bottom:1px solid var(--rule)}
+  .wrap{padding:0 1.1rem}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="dash-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <h1>Clinic capacity and non-attendance</h1>
+    <p class="sub">110,521 outpatient appointments: how much capacity non-attendance takes, what actually predicts it, and what a service manager can do about it.</p>
+    <p class="meta">
+      <a href="../projects/clinic-capacity.html">Case study</a>
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics">Repository</a>
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics/blob/main/reports/executive-summary.md">Executive summary</a>
+    </p>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filters">
+    <div class="f"><label>Cost per unattended slot</label>
+      <input type="range" id="fC" min="20" max="100" step="5" value="45"></div>
+    <div class="f"><label>&nbsp;</label><span id="cv" style="font-size:.9rem;color:var(--ink-2)"></span></div>
+    <p class="filter-note">The slot cost is an assumption. The ranking of the two options does not change anywhere in this range.</p>
+  </div>
+
+  <p class="takeaway"><b>The most-quoted result in this dataset is a confounding artefact.</b>
+  Patients who get an SMS reminder appear to miss more appointments — but reminders are only sent
+  when the booking is far enough out. Hold lead time constant and the sign reverses.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Lead time is the lever</h2>
+      <p class="note">Non-attendance against days between booking and appointment, with the 95% interval. Same-day bookings are missed 4.6% of the time; a month out it plateaus around 33%.</p>
+      <div class="chart" id="c1"></div>
+      <p class="src">Source: 110,521 appointments, Vitória, Brazil, April–June 2016. Lead time from the date parts.</p>
+    </section>
+    <section class="panel">
+      <h2>The SMS paradox, resolved</h2>
+      <p class="note">Non-attendance with and without a reminder, within each lead-time band. The same-day band has no SMS arm at all — that emptiness is the evidence.</p>
+      <div class="chart" id="c2"></div>
+      <p class="src">Source: Mantel-Haenszel across 105 exact lead-day strata gives OR 0.769 (0.742–0.797).</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Prior behaviour is the strongest predictor</h2>
+      <p class="note">Built from appointments strictly earlier than the one being predicted, ordered by booking time — a naive version leaks the answer.</p>
+      <div class="chart" id="c3"></div>
+      <p class="src">Source: expanding count shifted by one. Model odds ratio 2.83.</p>
+    </section>
+    <section class="panel">
+      <h2>Overbooking: capacity against overflow</h2>
+      <p class="note">Slots recovered against patients expected to arrive with no capacity, as the overbooking depth increases.</p>
+      <div class="chart" id="c4"></div>
+      <p class="src">Source: marginal rule with the binomial assumption tested and rejected — session counts are 2x overdispersed, so the published rule takes the haircut.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>District variation, above a volume floor</h2>
+      <p class="note">The 54 districts with at least 500 appointments — 94% of the book. Across all 81 the range is 100 points, which is an artefact of one- and two-appointment districts.</p>
+      <div class="chart" id="c5"></div>
+      <p class="src">Source: district-level rates. Spread across the retained districts is 13 points, IQR 3.5.</p>
+    </section>
+    <section class="panel">
+      <h2>Where the leakage sits</h2>
+      <p class="note">Age and weekday. Weekday is noise; age is not.</p>
+      <div id="tbl"></div>
+      <p class="src">Source: 110,521 appointments. Book average 20.2%.</p>
+    </section>
+  </div>
+
+  <footer>
+    <p>Every figure recomputes from the analysis pipeline in
+      <a href="https://github.com/Lohandesilva/healthcare-operations-analytics">healthcare-operations-analytics</a>.
+      <a href="../index.html">All work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a></p>
+  </footer>
+</div>
+<script>
+/* Minimal SVG chart kit. No dependencies. */
+(function (g) {
+  var NS = "http://www.w3.org/2000/svg";
+  var tip = null;
+
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  function ensureTip() {
+    if (!tip) { tip = document.createElement("div"); tip.id = "tip"; document.body.appendChild(tip); }
+    return tip;
+  }
+  function showTip(html, ev) {
+    var t = ensureTip();
+    t.innerHTML = html; t.style.opacity = 1;
+    var w = t.offsetWidth, h = t.offsetHeight;
+    var x = ev.clientX + 14, y = ev.clientY - h - 10;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+    if (y < 8) y = ev.clientY + 16;
+    t.style.left = x + "px"; t.style.top = y + "px";
+  }
+  function hideTip() { if (tip) tip.style.opacity = 0; }
+
+  function bind(node, html) {
+    node.addEventListener("mousemove", function (e) { showTip(html, e); });
+    node.addEventListener("mouseleave", hideTip);
+  }
+
+  // ---- formatters -----------------------------------------------------
+  var fmt = {
+    int: function (v) { return Math.round(v).toLocaleString("en-US"); },
+    pct1: function (v) { return (v * 100).toFixed(1) + "%"; },
+    pct0: function (v) { return Math.round(v * 100) + "%"; },
+    pct2: function (v) { return (v * 100).toFixed(2) + "%"; },
+    num1: function (v) { return v.toFixed(1); },
+    num2: function (v) { return v.toFixed(2); },
+    usd: function (v) { return (v < 0 ? "-$" : "$") + Math.abs(Math.round(v)).toLocaleString("en-US"); },
+    usdk: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-$" : "$";
+      if (a >= 1e12) return s + (a / 1e12).toFixed(2) + "tn";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    ntd: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-NT$" : "NT$";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(1) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    brl: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-R$" : "R$";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    }
+  };
+
+  function niceStep(range, n) {
+    if (range <= 0) return 1;
+    var raw = range / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    var step = r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10;
+    return step * mag;
+  }
+
+  // Round the axis outward to a clean step so ticks read 0/10/20 rather than
+  // 0/13/25. Returns the padded bounds alongside the ticks.
+  function axis(lo, hi, n) {
+    if (hi === lo) hi = lo + 1;
+    var step = niceStep(hi - lo, n);
+    var a = Math.floor(lo / step + 1e-9) * step;
+    var b = Math.ceil(hi / step - 1e-9) * step;
+    var out = [];
+    for (var v = a; v <= b + step * 1e-6; v += step) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+    return { ticks: out, lo: a, hi: b };
+  }
+
+  function nice(max) { return axis(0, max, 4).hi; }
+
+  // ---- vertical bars --------------------------------------------------
+  function bars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: 12, b: 42, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var lo = Math.min(0, Math.min.apply(null, vals));
+    var hi = Math.max.apply(null, vals);
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.08, 4);
+    var top = ax.hi, bot = ax.lo;
+    var y = function (v) { return m.t + ih - ((v - bot) / (top - bot)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = f(t);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }, svg);
+
+    var bw = iw / d.length, pad = Math.min(14, bw * 0.28);
+    d.forEach(function (row, i) {
+      var x0 = m.l + i * bw + pad / 2, w = bw - pad;
+      var v = row.value, yy = v >= 0 ? y(v) : y(0), h = Math.abs(y(v) - y(0));
+      var r = el("rect", {
+        class: "mark", x: x0, y: yy, width: w, height: Math.max(1, h),
+        fill: row.color || o.color || "var(--s1)", rx: 1
+      }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(v) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: x0 + w / 2, y: H - m.b + 15, "text-anchor": "middle" }, svg);
+      lb.textContent = row.label;
+      if (o.labels !== false && d.length <= 14) {
+        var vl = el("text", { class: "val-label", x: x0 + w / 2, y: (v >= 0 ? yy - 5 : yy + h + 12), "text-anchor": "middle" }, svg);
+        vl.textContent = f(v);
+      }
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: y(o.reference), y2: y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: W - m.r, y: y(o.reference) - 5, "text-anchor": "end" }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: y(Math.max(bot, 0)), y2: y(Math.max(bot, 0)) }, svg);
+  }
+
+  // ---- horizontal bars -------------------------------------------------
+  function hbars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var rowH = o.rowHeight || 24;
+    var W = 620, m = { t: 8, r: 90, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var hi = Math.max.apply(null, vals), lo = Math.min(0, Math.min.apply(null, vals));
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.04, 4);
+    var top = ax.hi, bot = ax.lo;
+    var iw = W - m.l - m.r;
+    var x = function (v) { return m.l + ((v - bot) / (top - bot)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: x(t), x2: x(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: x(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (row, i) {
+      var yy = m.t + i * rowH + 3, h = rowH - 8;
+      var x0 = row.value >= 0 ? x(0) : x(row.value), w = Math.abs(x(row.value) - x(0));
+      var r = el("rect", { class: "mark", x: x0, y: yy, width: Math.max(1, w), height: h, rx: 1, fill: row.color || o.color || "var(--s1)" }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(row.value) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: m.l - 8, y: yy + h / 2 + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = row.label.length > 26 ? row.label.slice(0, 25) + "…" : row.label;
+      var vl = el("text", { class: "val-label", x: (row.value >= 0 ? x0 + w + 6 : x0 - 6), y: yy + h / 2 + 3.5, "text-anchor": row.value >= 0 ? "start" : "end" }, svg);
+      vl.textContent = row.right !== undefined ? row.right : f(row.value);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: x(0), x2: x(0), y1: m.t, y2: m.t + ih }, svg);
+  }
+
+  // ---- line / area -----------------------------------------------------
+  function line(node, o) {
+    node.innerHTML = "";
+    var series = o.series || [];
+    if (!series.length || !series[0].points.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: o.rightPad || 16, b: 40, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fy = o.formatY || fmt.num1, fx = o.formatX || fmt.int;
+    var allX = [], allY = [];
+    series.forEach(function (s) { s.points.forEach(function (p) { allX.push(p[0]); allY.push(p[1]); }); });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, allX);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, allX);
+    var yA = axis(o.yMin !== undefined ? o.yMin : Math.min(0, Math.min.apply(null, allY)),
+                  o.yMax !== undefined ? o.yMax : Math.max.apply(null, allY) * 1.06, 4);
+    var y0 = o.yMin !== undefined ? o.yMin : yA.lo;
+    var y1 = o.yMax !== undefined ? o.yMax : yA.hi;
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0-1e-9&&t<=y1+1e-9;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, o.xTicks || 5).ticks.filter(function(t){return t>=x0-1e-9&&t<=x1+1e-9;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    series.forEach(function (s, si) {
+      var col = s.color || ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"][si % 4];
+      if (s.band) {
+        var up = s.band.map(function (p) { return X(p[0]) + "," + Y(p[2]); });
+        var dn = s.band.slice().reverse().map(function (p) { return X(p[0]) + "," + Y(p[1]); });
+        el("polygon", { points: up.concat(dn).join(" "), fill: col, opacity: .12 }, svg);
+      }
+      var pts = s.points.map(function (p) { return X(p[0]) + "," + Y(p[1]); }).join(" ");
+      el("polyline", { points: pts, fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+      if (s.label) {
+        var last = s.points[s.points.length - 1];
+        var lb = el("text", { class: "val-label", x: X(last[0]) + 5, y: Y(last[1]) + 3.5, fill: col }, svg);
+        lb.textContent = s.label;
+      }
+      s.points.forEach(function (p) {
+        var c = el("circle", { class: "mark", cx: X(p[0]), cy: Y(p[1]), r: 8, fill: "transparent" }, svg);
+        bind(c, "<b>" + (s.name ? s.name + "<br>" : "") + fx(p[0]) + "</b><br>" + fy(p[1]) + (p[2] ? "<br><span class='k'>" + p[2] + "</span>" : ""));
+      });
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: Y(o.reference), y2: Y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: m.l + 4, y: Y(o.reference) - 5 }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: Y(Math.max(y0, 0)), y2: Y(Math.max(y0, 0)) }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- scatter ---------------------------------------------------------
+  function scatter(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 260, m = { t: 14, r: 16, b: 44, l: 54 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fx = o.formatX || fmt.num1, fy = o.formatY || fmt.num1;
+    var xs = d.map(function (p) { return p.x; }), ys = d.map(function (p) { return p.y; });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, xs);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, xs);
+    var y0 = o.yMin !== undefined ? o.yMin : Math.min.apply(null, ys);
+    var y1 = o.yMax !== undefined ? o.yMax : Math.max.apply(null, ys);
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0&&t<=y1;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, 5).ticks.filter(function(t){return t>=x0&&t<=x1;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    var rMax = o.sizeMax || 0;
+    d.forEach(function (p) {
+      var r = rMax && p.size ? 2.5 + 7 * Math.sqrt(p.size / rMax) : (o.radius || 3.4);
+      var c = el("circle", {
+        class: "mark", cx: X(p.x), cy: Y(p.y), r: r,
+        fill: p.color || o.color || "var(--s1)", opacity: o.opacity || .62,
+        stroke: "#fff", "stroke-width": .6
+      }, svg);
+      bind(c, "<b>" + (p.label || "") + "</b><br><span class='k'>" + (o.xName || "x") + "</span> " + fx(p.x) +
+        "<br><span class='k'>" + (o.yName || "y") + "</span> " + fy(p.y) + (p.tip ? "<br>" + p.tip : ""));
+    });
+
+    if (o.zeroLine && y0 < 0 && y1 > 0) {
+      el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0) }, svg);
+    }
+    if (o.fit) {
+      el("line", { x1: X(o.fit[0][0]), y1: Y(o.fit[0][1]), x2: X(o.fit[1][0]), y2: Y(o.fit[1][1]), stroke: "var(--ink-3)", "stroke-width": 1.4, "stroke-dasharray": "5 4" }, svg);
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- range plot (p10 / q1 / median / q3 / p90) ------------------------
+  function ranges(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    var rowH = 26, W = 620, m = { t: 8, r: 60, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct0;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { lo = Math.min(lo, r.p10); hi = Math.max(hi, r.p90); });
+    var X = function (v) { return m.l + ((v - lo) / (hi - lo || 1)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(lo, hi, 4).ticks.filter(function(t){return t>=lo&&t<=hi;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      el("line", { x1: X(r.p10), x2: X(r.p90), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.5 }, svg);
+      var box = el("rect", { class: "mark", x: X(r.q1), y: cy - 6, width: Math.max(2, X(r.q3) - X(r.q1)), height: 12, fill: "var(--s1)", opacity: .3, rx: 1 }, svg);
+      var dot = el("circle", { class: "mark", cx: X(r.median), cy: cy, r: 4, fill: "var(--s1)" }, svg);
+      var html = "<b>" + r.label + "</b><br><span class='k'>median</span> " + f(r.median) +
+        "<br><span class='k'>IQR</span> " + f(r.q1) + " to " + f(r.q3) +
+        "<br><span class='k'>p10-p90</span> " + f(r.p10) + " to " + f(r.p90) +
+        (r.n ? "<br><span class='k'>n</span> " + r.n : "");
+      bind(box, html); bind(dot, html);
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label;
+      var vl = el("text", { class: "val-label", x: W - m.r + 6, y: cy + 3.5 }, svg);
+      vl.textContent = f(r.median);
+    });
+  }
+
+  // ---- heatmap ---------------------------------------------------------
+  function heatmap(node, o) {
+    node.innerHTML = "";
+    var rows = o.rows, cols = o.cols, vals = o.values;
+    var cell = 42, W = 620, m = { t: 30, r: 10, b: 34, l: 108 };
+    var gw = Math.min(cell, (W - m.l - m.r) / cols.length);
+    var H = rows.length * cell + m.t + m.b;
+    var f = o.format || fmt.pct0;
+    var max = 0; vals.forEach(function (r) { r.forEach(function (v) { if (v > max) max = v; }); });
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    cols.forEach(function (c, j) {
+      var tx = el("text", { class: "tick", x: m.l + j * gw + gw / 2, y: m.t - 9, "text-anchor": "middle" }, svg);
+      tx.textContent = c;
+    });
+    rows.forEach(function (r, i) {
+      var tx = el("text", { class: "tick", x: m.l - 8, y: m.t + i * cell + cell / 2 + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = r;
+      cols.forEach(function (c, j) {
+        var v = vals[i][j], t = max ? v / max : 0;
+        var rect = el("rect", {
+          class: "mark", x: m.l + j * gw + 1, y: m.t + i * cell + 1,
+          width: gw - 2, height: cell - 2, rx: 1,
+          fill: "var(--s1)", opacity: 0.06 + 0.9 * Math.pow(t, 0.6)
+        }, svg);
+        bind(rect, "<b>" + r + " → " + c + "</b><br>" + f(v));
+        if (v > 0.005) {
+          var lab = el("text", {
+            x: m.l + j * gw + gw / 2, y: m.t + i * cell + cell / 2 + 3.5,
+            "text-anchor": "middle", "font-size": 10.5,
+            fill: t > 0.55 ? "#fff" : "var(--ink-2)"
+          }, svg);
+          lab.textContent = f(v);
+        }
+      });
+    });
+    var xl = el("text", { class: "tick mid", x: m.l + (cols.length * gw) / 2, y: H - 8, "text-anchor": "middle" }, svg);
+    xl.textContent = o.xLabel || "";
+  }
+
+
+  // ---- dumbbell: two values per row, connected ------------------------
+  function dumbbell(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows.</p>'; return; }
+    var rowH = o.rowHeight || 30, W = 620, m = { t: 26, r: 70, b: 30, l: o.labelWidth || 118 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct1;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { [r.a, r.b].forEach(function (v) { if (v !== null) hi = Math.max(hi, v); }); });
+    var ax = axis(lo, hi * 1.06, 4), X = function (v) { return m.l + ((v - ax.lo) / (ax.hi - ax.lo)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 10, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+    // legend
+    var lg = [[o.aName || "A", o.aColor || "var(--s3)"], [o.bName || "B", o.bColor || "var(--s2)"]];
+    lg.forEach(function (p, i) {
+      el("circle", { cx: m.l + i * 132 + 4, cy: 10, r: 4.5, fill: p[1] }, svg);
+      var t = el("text", { class: "tick mid", x: m.l + i * 132 + 14, y: 13.5 }, svg);
+      t.textContent = p[0];
+    });
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      if (r.a !== null && r.b !== null) {
+        el("line", { x1: X(r.a), x2: X(r.b), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.6 }, svg);
+      }
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label;
+      [["a", o.aColor || "var(--s3)", o.aName], ["b", o.bColor || "var(--s2)", o.bName]].forEach(function (p) {
+        if (r[p[0]] === null) return;
+        var c = el("circle", { class: "mark", cx: X(r[p[0]]), cy: cy, r: 5.5, fill: p[1], stroke: "#fff", "stroke-width": 1 }, svg);
+        bind(c, "<b>" + r.label + "</b><br><span class='k'>" + p[2] + "</span> " + f(r[p[0]]) +
+          (r.tip ? "<br>" + r.tip : ""));
+      });
+      if (r.right) {
+        var vl = el("text", { class: "val-label", x: W - m.r + 8, y: cy + 3.5 }, svg);
+        vl.textContent = r.right;
+      }
+      if (r.note) {
+        var nt = el("text", { class: "ref-label", x: m.l + 4, y: cy + 3.5 }, svg);
+        nt.textContent = r.note;
+      }
+    });
+  }
+
+  // ---- table -----------------------------------------------------------
+  function table(node, o) {
+    var rows = o.rows || [];
+    if (!rows.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var h = "<div class='scroll'><table><thead><tr>";
+    o.columns.forEach(function (c) { h += "<th>" + c.label + "</th>"; });
+    h += "</tr></thead><tbody>";
+    rows.forEach(function (r) {
+      h += "<tr>";
+      o.columns.forEach(function (c) {
+        var v = r[c.key];
+        var cls = c.signed ? (v < 0 ? " class='neg'" : v > 0 ? " class='pos'" : "") : "";
+        h += "<td" + cls + ">" + (c.format ? c.format(v, r) : v) + "</td>";
+      });
+      h += "</tr>";
+    });
+    node.innerHTML = h + "</tbody></table></div>";
+  }
+
+  function kpis(node, items) {
+    node.innerHTML = items.map(function (k) {
+      return "<div class='kpi" + (k.hero ? " hero" : "") + "'><span class='v'>" + k.value + "</span>" +
+        "<span class='l'>" + k.label + "</span>" +
+        (k.delta ? "<span class='d " + (k.deltaClass || "") + "'>" + k.delta + "</span>" : "") + "</div>";
+    }).join("");
+  }
+
+  g.Kit = { bars: bars, hbars: hbars, line: line, scatter: scatter, ranges: ranges, heatmap: heatmap, dumbbell: dumbbell, table: table, kpis: kpis, fmt: fmt };
+})(window);
+
+</script>
+<script>
+
+var D = {"lead":[[0.0,0.04647,0.04441,0.04862,38562.0],[1.0,0.2135,0.20259,0.22484,5213.0],[2.0,0.23822,0.22819,0.24854,6725.0],[3.0,0.23529,0.21978,0.25155,2737.0],[4.0,0.2327,0.22151,0.24428,5290.0],[5.0,0.2661,0.25125,0.2815,3277.0],[6.0,0.24796,0.23488,0.26151,4037.0],[7.0,0.26682,0.25463,0.27937,4906.0],[8.0,0.28731,0.2693,0.30601,2332.0],[9.0,0.27414,0.25288,0.29649,1605.0],[10.0,0.31632,0.29241,0.34124,1391.0],[11.0,0.31611,0.28786,0.34578,987.0],[12.0,0.31659,0.28996,0.34448,1115.0],[13.0,0.31867,0.29683,0.34133,1682.0],[14.0,0.31342,0.29683,0.3305,2913.0],[15.0,0.334,0.3106,0.35824,1503.0],[16.0,0.30495,0.27904,0.33216,1151.0],[17.0,0.31617,0.28945,0.34416,1107.0],[18.0,0.30558,0.2781,0.33452,1021.0],[19.0,0.3477,0.31942,0.3771,1044.0],[20.0,0.34372,0.31725,0.37121,1187.0],[21.0,0.30897,0.28839,0.33034,1861.0],[22.0,0.34442,0.31777,0.37208,1173.0],[23.0,0.33577,0.30431,0.36875,822.0],[24.0,0.37781,0.34057,0.41656,622.0],[25.0,0.40188,0.36451,0.44044,637.0],[26.0,0.35978,0.32581,0.39522,731.0],[27.0,0.31589,0.28801,0.34517,1013.0],[28.0,0.29484,0.27368,0.31692,1706.0],[29.0,0.32691,0.2997,0.35533,1089.0],[30.0,0.26562,0.23433,0.29946,704.0],[31.0,0.32738,0.29297,0.36375,672.0],[32.0,0.35154,0.31396,0.39105,586.0],[33.0,0.33434,0.2995,0.37108,664.0],[34.0,0.33416,0.30249,0.3674,808.0],[35.0,0.37279,0.34281,0.40378,963.0],[36.0,0.31034,0.27314,0.35018,551.0],[37.0,0.35952,0.3097,0.41255,331.0],[38.0,0.34171,0.27937,0.41005,199.0],[39.0,0.32353,0.25778,0.39708,170.0],[40.0,0.40551,0.34697,0.46687,254.0],[41.0,0.3538,0.305,0.40585,342.0],[42.0,0.3693,0.32437,0.41662,417.0],[43.0,0.29921,0.24623,0.35818,254.0],[44.0,0.29936,0.23321,0.3751,157.0],[45.0,0.36496,0.28905,0.44824,137.0]],"sms":[{"stratum":"Same day","no_sms_n":38562,"no_sms_rate":0.04647,"no_sms_lo":0.04441,"no_sms_hi":0.04862,"sms_n":0,"sms_rate":NaN,"sms_lo":NaN,"sms_hi":NaN,"difference_pp":NaN,"odds_ratio":NaN,"p_value":NaN},{"stratum":"1-3 days","no_sms_n":13769,"no_sms_rate":0.22994,"no_sms_lo":0.22298,"no_sms_hi":0.23704,"sms_n":906,"sms_rate":0.21302,"sms_lo":0.1876,"sms_hi":0.24087,"difference_pp":-1.69125,"odds_ratio":0.90654,"p_value":0.25726},{"stratum":"4-7 days","no_sms_n":6868,"no_sms_rate":0.27111,"no_sms_lo":0.26073,"no_sms_hi":0.28175,"sms_n":10642,"sms_rate":0.23971,"sms_lo":0.23169,"sms_hi":0.24791,"difference_pp":-3.14018,"odds_ratio":0.84766,"p_value":0.0},{"stratum":"8-14 days","no_sms_n":5021,"no_sms_rate":0.33758,"no_sms_lo":0.32463,"no_sms_hi":0.35078,"sms_n":7004,"sms_rate":0.28113,"sms_lo":0.27072,"sms_hi":0.29177,"difference_pp":-5.64571,"odds_ratio":0.76736,"p_value":0.0},{"stratum":"15-30 days","no_sms_n":6851,"no_sms_rate":0.36871,"no_sms_lo":0.35736,"no_sms_hi":0.3802,"sms_n":10520,"sms_rate":0.298,"sms_lo":0.28934,"sms_hi":0.30682,"difference_pp":-7.07015,"odds_ratio":0.72684,"p_value":0.0},{"stratum":"31+ days","no_sms_n":3968,"no_sms_rate":0.37525,"no_sms_lo":0.36031,"no_sms_hi":0.39043,"sms_n":6410,"sms_rate":0.30203,"sms_lo":0.29091,"sms_hi":0.31338,"difference_pp":-7.32239,"odds_ratio":0.72043,"p_value":0.0}],"prior":[{"prior_no_shows":-1,"prior_no_shows_label":"No prior record","appointments":62298,"no_shows":12976,"no_show_rate":0.20829,"rate_lo":0.20512,"rate_hi":0.2115,"share_of_appointments":NaN,"share_of_no_shows":NaN,"vs_base_pp":NaN},{"prior_no_shows":0,"prior_no_shows_label":NaN,"appointments":30727,"no_shows":4685,"no_show_rate":0.15247,"rate_lo":0.1485,"rate_hi":0.15653,"share_of_appointments":0.63719,"share_of_no_shows":0.50171,"vs_base_pp":-4.11703},{"prior_no_shows":1,"prior_no_shows_label":"One","appointments":12864,"no_shows":3223,"no_show_rate":0.25054,"rate_lo":0.24313,"rate_hi":0.25811,"share_of_appointments":0.26676,"share_of_no_shows":0.34515,"vs_base_pp":5.69021},{"prior_no_shows":2,"prior_no_shows_label":"Two","appointments":2995,"no_shows":808,"no_show_rate":0.26978,"rate_lo":0.25419,"rate_hi":0.28597,"share_of_appointments":0.06211,"share_of_no_shows":0.08653,"vs_base_pp":7.61409},{"prior_no_shows":3,"prior_no_shows_label":"Three or more","appointments":1637,"no_shows":622,"no_show_rate":0.37996,"rate_lo":0.35676,"rate_hi":0.40373,"share_of_appointments":0.03395,"share_of_no_shows":0.06661,"vs_base_pp":18.63213}],"district":[["DO CABRAL",560,0.15714],["SANTA MARTHA",3131,0.15842],["JARDIM DA PENHA",3877,0.16275],["DO QUADRO",849,0.1649],["VILA RUBIM",851,0.16569],["MATA DA PRAIA",644,0.17081],["REP\u00daBLICA",835,0.17126],["CONSOLA\u00c7\u00c3O",1375,0.17164],["SANTO ANT\u00d4NIO",2744,0.17566],["REDEN\u00c7\u00c3O",1553,0.17708],["NOVA PALESTINA",2264,0.17756],["JABOUR",2509,0.17975],["JOANA D\u00b4ARC",1427,0.1808],["TABUAZEIRO",3131,0.18269],["FORTE S\u00c3O JO\u00c3O",1889,0.18317],["PRAIA DO CANTO",1035,0.18357],["CONQUISTA",849,0.18846],["JARDIM CAMBURI",7717,0.18984],["INHANGUET\u00c1",1057,0.19111],["ILHA DE SANTA MARIA",1885,0.19151],["JUCUTUQUARA",694,0.19164],["DA PENHA",2217,0.1935],["GOIABEIRAS",700,0.19571],["ESTRELINHA",538,0.19703],["SANTO ANDR\u00c9",2571,0.19759],["S\u00c3O CRIST\u00d3V\u00c3O",1836,0.19771],["BONFIM",2773,0.19834],["S\u00c3O BENEDITO",1439,0.19944],["BELA VISTA",1907,0.20136],["MONTE BELO",824,0.20146],["GRANDE VIT\u00d3RIA",1071,0.20261],["SANTA TEREZA",1332,0.2042],["RESIST\u00caNCIA",4430,0.20429],["SANTOS REIS",547,0.20475],["MARIA ORTIZ",5805,0.20999],["S\u00c3O PEDRO",2448,0.21038],["CENTRO",3334,0.21086],["ROM\u00c3O",2214,0.21409],["S\u00c3O JOS\u00c9",1977,0.21649],["CRUZAMENTO",1398,0.21745],["FONTE GRANDE",682,0.21848],["ILHA DAS CAIEIRAS",1071,0.21942],["MARU\u00cdPE",1902,0.22292],["PARQUE MOSCOSO",802,0.22319],["BENTO FERREIRA",858,0.22494],["GURIGICA",2018,0.22597],["PRAIA DO SU\u00c1",1288,0.22826],["ANDORINHAS",2262,0.23033],["CARATO\u00cdRA",2565,0.23041],["ILHA DO PR\u00cdNCIPE",2266,0.23477],["JESUS DE NAZARETH",2853,0.24395],["ITARAR\u00c9",3514,0.26266],["SANTA CLARA",506,0.26482],["SANTOS DUMONT",1276,0.28918]],"front":[{"overflow_multiple":1.0,"dispersion":1.6162,"stop_probability":0.5,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":24919,"recovered_slots":17784.1439,"expected_overflow":1982.9461,"recovered_per_overflow":8.9685,"overbook_rate_mean":0.2392,"utilisation_uplift_pp":17.0694},{"overflow_multiple":1.5,"dispersion":1.6162,"stop_probability":0.4,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":22899,"recovered_slots":16800.9347,"expected_overflow":1360.7353,"recovered_per_overflow":12.347,"overbook_rate_mean":0.2198,"utilisation_uplift_pp":16.1257},{"overflow_multiple":2.0,"dispersion":1.6162,"stop_probability":0.3333,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":21499,"recovered_slots":16030.2434,"expected_overflow":1018.8866,"recovered_per_overflow":15.7331,"overbook_rate_mean":0.2064,"utilisation_uplift_pp":15.386},{"overflow_multiple":3.0,"dispersion":1.6162,"stop_probability":0.25,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":19592,"recovered_slots":14874.1739,"expected_overflow":658.4561,"recovered_per_overflow":22.5895,"overbook_rate_mean":0.188,"utilisation_uplift_pp":14.2764},{"overflow_multiple":4.0,"dispersion":1.6162,"stop_probability":0.2,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":18300,"recovered_slots":14029.6929,"expected_overflow":476.3871,"recovered_per_overflow":29.4502,"overbook_rate_mean":0.1756,"utilisation_uplift_pp":13.4659},{"overflow_multiple":6.0,"dispersion":1.6162,"stop_probability":0.1429,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":16566,"recovered_slots":12831.8876,"expected_overflow":295.7624,"recovered_per_overflow":43.3858,"overbook_rate_mean":0.159,"utilisation_uplift_pp":12.3162},{"overflow_multiple":10.0,"dispersion":1.6162,"stop_probability":0.0909,"sessions_in_scope":1383,"sessions_excluded_too_small":629,"slots_in_scope":104187,"extra_bookings":14593,"recovered_slots":11397.7412,"expected_overflow":161.8988,"recovered_per_overflow":70.4004,"overbook_rate_mean":0.1401,"utilisation_uplift_pp":10.9397}],"age":[{"age_band":"0-4","appointments":10242,"no_shows":1865,"no_show_rate":0.18209,"rate_lo":0.17474,"rate_hi":0.18969,"share_of_appointments":0.09267,"share_of_no_shows":0.08358,"vs_base_pp":-1.98049},{"age_band":"5-17","appointments":17136,"no_shows":4131,"no_show_rate":0.24107,"rate_lo":0.23473,"rate_hi":0.24753,"share_of_appointments":0.15505,"share_of_no_shows":0.18513,"vs_base_pp":3.91731},{"age_band":"18-29","appointments":16729,"no_shows":4122,"no_show_rate":0.2464,"rate_lo":0.23993,"rate_hi":0.25299,"share_of_appointments":0.15136,"share_of_no_shows":0.18473,"vs_base_pp":4.45002},{"age_band":"30-44","appointments":22021,"no_shows":4805,"no_show_rate":0.2182,"rate_lo":0.21279,"rate_hi":0.2237,"share_of_appointments":0.19925,"share_of_no_shows":0.21534,"vs_base_pp":1.63025},{"age_band":"45-59","appointments":23221,"no_shows":4150,"no_show_rate":0.17872,"rate_lo":0.17384,"rate_hi":0.1837,"share_of_appointments":0.2101,"share_of_no_shows":0.18598,"vs_base_pp":-2.31807},{"age_band":"60-74","appointments":15237,"no_shows":2291,"no_show_rate":0.15036,"rate_lo":0.14477,"rate_hi":0.15612,"share_of_appointments":0.13787,"share_of_no_shows":0.10267,"vs_base_pp":-5.15406},{"age_band":"75+","appointments":5935,"no_shows":950,"no_show_rate":0.16007,"rate_lo":0.15096,"rate_hi":0.16962,"share_of_appointments":0.0537,"share_of_no_shows":0.04257,"vs_base_pp":-4.18309}],"wd":[{"weekday":"Thursday","appointments":17246,"no_shows":3337,"no_show_rate":0.19349,"rate_lo":0.18767,"rate_hi":0.19946,"share_of_appointments":0.15604,"share_of_no_shows":0.14955,"vs_base_pp":-0.84041},{"weekday":"Wednesday","appointments":25866,"no_shows":5092,"no_show_rate":0.19686,"rate_lo":0.19206,"rate_hi":0.20175,"share_of_appointments":0.23404,"share_of_no_shows":0.2282,"vs_base_pp":-0.50375},{"weekday":"Tuesday","appointments":25638,"no_shows":5150,"no_show_rate":0.20087,"rate_lo":0.19601,"rate_hi":0.20582,"share_of_appointments":0.23197,"share_of_no_shows":0.2308,"vs_base_pp":-0.10246},{"weekday":"Monday","appointments":22713,"no_shows":4689,"no_show_rate":0.20645,"rate_lo":0.20123,"rate_hi":0.21176,"share_of_appointments":0.20551,"share_of_no_shows":0.21014,"vs_base_pp":0.45474},{"weekday":"Friday","appointments":19019,"no_shows":4037,"no_show_rate":0.21226,"rate_lo":0.20651,"rate_hi":0.21813,"share_of_appointments":0.17208,"share_of_no_shows":0.18092,"vs_base_pp":1.03631},{"weekday":"Saturday","appointments":39,"no_shows":9,"no_show_rate":0.23077,"rate_lo":0.12646,"rate_hi":0.38337,"share_of_appointments":0.00035,"share_of_no_shows":0.0004,"vs_base_pp":2.88709}],"opt":[{"option":"Shorten lead times to 7 days","mechanism":"prevents the miss","slots_recovered_window":3145.42,"expected_overflow_window":0.0,"value_window_brl":141543.73,"value_annualised_brl":1310590.1},{"option":"Overbook to the marginal-value stopping rule","mechanism":"refills the slot","slots_recovered_window":14874.17,"expected_overflow_window":658.46,"value_window_brl":580446.25,"value_annualised_brl":5374502.27}]};
+var F = Kit.fmt;
+var MISSED = 22314, BOOKED = 110521, DAYS = 27, ANNUAL_DAYS = 250;
+
+function render(){
+  var cost = +document.getElementById('fC').value;
+  document.getElementById('cv').textContent = 'R$'+cost+' per slot';
+  var windowCost = MISSED*cost, annual = windowCost/DAYS*ANNUAL_DAYS;
+  Kit.kpis(document.getElementById('kpis'), [
+    {value:F.int(BOOKED), label:'Appointments booked'},
+    {value:F.int(MISSED), label:'Not attended'},
+    {value:'20.2%', label:'Non-attendance rate', hero:true},
+    {value:'79.8%', label:'Slot utilisation', hero:true},
+    {value:F.brl(annual), label:'Annualised cost of the leakage',
+     delta:F.brl(windowCost)+' over the six-week window'}
+  ]);
+
+  Kit.line(document.getElementById('c1'), {
+    series:[{points: D.lead.map(function(r){return [r[0], r[1], F.int(r[4])+' appointments'];}),
+             band: D.lead.map(function(r){return [r[0], r[2], r[3]];}), color:'var(--s1)'}],
+    formatX:F.int, formatY:F.pct0, yMin:0, xMin:0,
+    reference:0.2019, referenceLabel:'book average 20.2%',
+    xLabel:'Days between booking and appointment', height:250});
+
+  Kit.dumbbell(document.getElementById('c2'), {
+    data: D.sms.map(function(s){
+      return {label:s.stratum,
+        a: s.no_sms_n>0? s.no_sms_rate : null,
+        b: s.sms_n>0? s.sms_rate : null,
+        right: s.sms_n>0? (s.difference_pp>0?'+':'')+s.difference_pp.toFixed(1)+'pp' : 'no SMS sent',
+        tip:'<span class="k">no SMS</span> '+F.int(s.no_sms_n)+' &nbsp; <span class="k">SMS</span> '+F.int(s.sms_n)};
+    }),
+    aName:'No reminder', bName:'Reminder sent',
+    aColor:'var(--s2)', bColor:'var(--s3)', format:F.pct1, labelWidth:110, rowHeight:32});
+
+  Kit.bars(document.getElementById('c3'), {
+    data: D.prior.map(function(p){return {label:p.prior_no_shows_label, value:p.no_show_rate,
+      color: p.no_show_rate>0.3?'var(--s2)':'var(--s1)',
+      tip:F.int(p.appointments)+' appointments'};}),
+    format:F.pct0, tipLabel:'non-attendance ', reference:0.2019, referenceLabel:'book average', height:220});
+
+  Kit.line(document.getElementById('c4'), {
+    series:[{points: D.front.map(function(f){return [f.expected_overflow, f.recovered_slots,
+      'ratio '+f.recovered_per_overflow.toFixed(1)+':1'];}), color:'var(--s1)'}],
+    formatX:F.int, formatY:F.int, yMin:0, xMin:0,
+    xLabel:'Patients expected to arrive with no capacity', height:250});
+
+  Kit.hbars(document.getElementById('c5'), {
+    data: D.district.slice().reverse().slice(0,12).map(function(d){
+      return {label:d[0], value:d[2], tip:F.int(d[1])+' appointments'};}),
+    format:F.pct0, tipLabel:'non-attendance ', labelWidth:150, rowHeight:23});
+
+  var rows = D.age.map(function(a){return {g:'Age', k:a.age_band, n:a.appointments, r:a.no_show_rate, d:a.vs_base_pp};})
+    .concat(D.wd.map(function(w){return {g:'Weekday', k:w.weekday, n:w.appointments, r:w.no_show_rate, d:w.vs_base_pp};}));
+  Kit.table(document.getElementById('tbl'), {
+    columns:[{key:'g',label:'Cut'},{key:'k',label:'Group'},
+      {key:'n',label:'Appointments',format:F.int},
+      {key:'r',label:'Non-attendance',format:F.pct1},
+      {key:'d',label:'vs average',format:function(v){return (v>0?'+':'')+v.toFixed(1)+'pp';},signed:true}],
+    rows:rows});
+}
+document.getElementById('fC').addEventListener('input', render);
+render();
+
+</script>
+</body>
+</html>

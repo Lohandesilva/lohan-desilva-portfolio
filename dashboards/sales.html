@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales performance and discount policy dashboard — Lohan De Silva</title>
+<meta name="description" content="A four-year order book: where the margin goes, which lines destroy it, and what a discount cap is worth.">
+<style>
+:root{
+  --paper:#fbfaf7; --panel:#ffffff; --ink:#16161a; --ink-2:#45443f; --ink-3:#74736c;
+  --rule:#e0ded5; --rule-strong:#c9c6ba; --accent:#1c4e80;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --pos:#0ca30c; --neg:#d03b3b; --warn:#fab219;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:78rem;margin:0 auto;padding:0 1.6rem}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(28,78,128,.28)}
+a:hover{border-bottom-color:var(--accent)}
+
+.dash-head{padding:2.4rem 0 1.4rem;border-bottom:1px solid var(--rule-strong)}
+.backlink{display:inline-block;font-size:.84rem;color:var(--ink-3);border-bottom:none;margin-bottom:1.2rem}
+.backlink:hover{color:var(--accent)}
+.dash-head h1{font-family:var(--serif);font-weight:400;font-size:clamp(1.7rem,3.6vw,2.3rem);line-height:1.15;letter-spacing:-.015em;margin:0 0 .5rem;max-width:44rem}
+.dash-head .sub{color:var(--ink-2);margin:0 0 1rem;max-width:46rem;font-size:.98rem}
+.dash-head .meta{font-size:.83rem;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:0 1.3rem}
+.dash-head .meta a{border-bottom:none;color:var(--ink-2)}
+
+/* KPI row */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0;border-bottom:1px solid var(--rule);margin:0 0 1.6rem}
+.kpi{padding:1.4rem 1.2rem 1.3rem;border-right:1px solid var(--rule)}
+.kpi:last-child{border-right:none}
+.kpi.hero{background:#f2f5f9}
+.kpi .v{font-family:var(--serif);font-size:1.75rem;line-height:1.05;letter-spacing:-.02em;display:block}
+.kpi .l{font-size:.78rem;color:var(--ink-3);display:block;margin-top:.45rem;line-height:1.35}
+.kpi .d{font-size:.75rem;margin-top:.3rem;display:block}
+.kpi .d.pos{color:var(--pos)} .kpi .d.neg{color:var(--neg)}
+
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:flex-end;padding:0 0 1.4rem;border-bottom:1px solid var(--rule);margin-bottom:1.6rem}
+.filters .f{display:flex;flex-direction:column;gap:.25rem}
+.filters label{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.filters input[type=range]{width:11rem;accent-color:var(--accent)}
+.filters select{font-family:var(--sans);font-size:.88rem;padding:.36rem .5rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink);border-radius:2px;min-width:9.5rem}
+.filters button{font-family:var(--sans);font-size:.82rem;padding:.42rem .8rem;border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink-2);border-radius:2px;cursor:pointer}
+.filters button:hover{border-color:var(--accent);color:var(--accent)}
+.filter-note{font-size:.8rem;color:var(--ink-3);margin-left:auto}
+
+/* panels */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.6rem;margin-bottom:1.6rem;align-items:start}
+.grid.one{grid-template-columns:1fr}
+.panel{background:var(--panel);border:1px solid var(--rule);padding:1.2rem 1.3rem 1rem}
+.panel h2{font-family:var(--serif);font-weight:400;font-size:1.12rem;line-height:1.3;margin:0 0 .2rem}
+.panel .note{font-size:.82rem;color:var(--ink-3);margin:0 0 .9rem;line-height:1.45}
+.panel .src{font-size:.74rem;color:var(--ink-3);margin:.7rem 0 0;padding-top:.6rem;border-top:1px solid var(--rule)}
+.chart{width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.empty{font-size:.85rem;color:var(--ink-3);padding:2rem 0;text-align:center}
+
+/* svg primitives */
+.axis-line{stroke:var(--rule-strong);stroke-width:1}
+.grid-line{stroke:var(--rule);stroke-width:1}
+.zero-line{stroke:var(--ink-3);stroke-width:1}
+.ref-line{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:4 4}
+.tick{font-size:10.5px;fill:var(--ink-3)}
+.tick.mid{fill:var(--ink-2)}
+.val-label{font-size:10.5px;fill:var(--ink-2)}
+.ref-label{font-size:10px;fill:var(--ink-3)}
+.mark{transition:opacity .12s}
+.chart:hover .mark{opacity:.45}
+.chart .mark:hover{opacity:1}
+
+/* table */
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.42rem .6rem;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+th{font-weight:600;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-bottom-color:var(--rule-strong)}
+tbody tr:hover{background:#f6f5f1}
+td.neg{color:var(--neg)} td.pos{color:var(--pos)}
+.scroll{overflow-x:auto;max-height:22rem;overflow-y:auto}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;background:#16161a;color:#fff;font-size:.78rem;line-height:1.4;padding:.45rem .6rem;border-radius:3px;opacity:0;transition:opacity .1s;z-index:50;max-width:16rem}
+#tip b{font-weight:600}
+#tip .k{color:#b9b8b2}
+
+.takeaway{background:#eef2f7;border-left:2px solid var(--accent);padding:1rem 1.2rem;margin:0 0 1.6rem;font-size:.92rem;color:var(--ink-2)}
+.takeaway b{color:var(--ink)}
+footer{border-top:1px solid var(--rule-strong);padding:1.8rem 0 3rem;margin-top:1rem;font-size:.83rem;color:var(--ink-3)}
+footer a{color:var(--ink-2);border-bottom:none}
+
+@media(max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .kpi{border-right:none;border-bottom:1px solid var(--rule)}
+  .wrap{padding:0 1.1rem}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="dash-head">
+    <a class="backlink" href="../index.html">&larr; Lohan De Silva</a>
+    <h1>Sales performance and the cost of discounting</h1>
+    <p class="sub">A four-year order book: where the margin goes, which lines destroy it, and what a discount cap is worth.</p>
+    <p class="meta">
+      <a href="../projects/sales-margin.html">Case study</a>
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics">Repository</a>
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics/blob/main/reports/executive-summary.md">Executive summary</a>
+    </p>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filters">
+    <div class="f"><label>Year</label><select id="fY"><option value="-1">All</option><option value="0">2015</option><option value="1">2016</option><option value="2">2017</option><option value="3">2018</option></select></div>
+    <div class="f"><label>Region</label><select id="fR"><option value="-1">All</option><option value="0">Central</option><option value="1">East</option><option value="2">South</option><option value="3">West</option></select></div>
+    <div class="f"><label>Segment</label><select id="fS"><option value="-1">All</option><option value="0">Consumer</option><option value="1">Corporate</option><option value="2">Home Office</option></select></div>
+    <div class="f"><label>Category</label><select id="fC"><option value="-1">All</option><option value="0">Furniture</option><option value="1">Office Supplies</option><option value="2">Technology</option></select></div>
+    <div class="f"><label>&nbsp;</label><button id="reset">Reset</button></div>
+    <p class="filter-note" id="fnote"></p>
+  </div>
+
+  <p class="takeaway"><b>Revenue grew 51% over four years and margin ended lower than it was in
+  2017</b>, because the growth was bought with discount. Past 20% off, a discount does not thin the
+  margin on a line — it inverts it.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Discounting has a cliff, not a slope</h2>
+      <p class="note">Aggregate margin at each discount level the business issues, sized by the revenue sold there. Not affected by the filters — this is the structural relationship.</p>
+      <div class="chart" id="c1"></div>
+      <p class="src">Source: 9,994 order lines. Every level with at least one line is plotted.</p>
+    </section>
+    <section class="panel">
+      <h2>Profit by sub-category</h2>
+      <p class="note">Three sub-categories with real volume destroy margin over the full period.</p>
+      <div class="chart" id="c2"></div>
+      <p class="src">Source: order lines aggregated to sub-category. Red bars lose money.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Revenue by year</h2>
+      <p class="note">The growth story on its own.</p>
+      <div class="chart" id="c3"></div>
+      <p class="src">Source: order date year.</p>
+    </section>
+    <section class="panel">
+      <h2>Margin by year</h2>
+      <p class="note">The same years, plotted separately. A dual axis here would invite exactly the misreading this pair exists to prevent.</p>
+      <div class="chart" id="c4"></div>
+      <p class="src">Source: profit over revenue, aggregated not averaged.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Margin by region</h2>
+      <p class="note">Central runs 4.6 points below the company. Decomposition in the case study shows 5.3 of those points are the discount it is permitted to give, not selling performance.</p>
+      <div class="chart" id="c5"></div>
+      <p class="src">Source: aggregate margin; hover for the average discount each region gives.</p>
+    </section>
+    <section class="panel">
+      <h2>Sub-category detail</h2>
+      <p class="note">Sorted by profit. Discount is the value-weighted give-away rate, not the mean of the discount column.</p>
+      <div id="tbl"></div>
+      <p class="src">Source: order lines. Sub-categories below 50 lines in the current filter are still shown but should not be read as signal.</p>
+    </section>
+  </div>
+
+  <footer>
+    <p>Every figure recomputes from the analysis pipeline in
+      <a href="https://github.com/Lohandesilva/sales-performance-analytics">sales-performance-analytics</a>.
+      <a href="../index.html">All work</a> ·
+      <a href="mailto:desilvalohan@gmail.com">desilvalohan@gmail.com</a></p>
+  </footer>
+</div>
+<script>
+/* Minimal SVG chart kit. No dependencies. */
+(function (g) {
+  var NS = "http://www.w3.org/2000/svg";
+  var tip = null;
+
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  function ensureTip() {
+    if (!tip) { tip = document.createElement("div"); tip.id = "tip"; document.body.appendChild(tip); }
+    return tip;
+  }
+  function showTip(html, ev) {
+    var t = ensureTip();
+    t.innerHTML = html; t.style.opacity = 1;
+    var w = t.offsetWidth, h = t.offsetHeight;
+    var x = ev.clientX + 14, y = ev.clientY - h - 10;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+    if (y < 8) y = ev.clientY + 16;
+    t.style.left = x + "px"; t.style.top = y + "px";
+  }
+  function hideTip() { if (tip) tip.style.opacity = 0; }
+
+  function bind(node, html) {
+    node.addEventListener("mousemove", function (e) { showTip(html, e); });
+    node.addEventListener("mouseleave", hideTip);
+  }
+
+  // ---- formatters -----------------------------------------------------
+  var fmt = {
+    int: function (v) { return Math.round(v).toLocaleString("en-US"); },
+    pct1: function (v) { return (v * 100).toFixed(1) + "%"; },
+    pct0: function (v) { return Math.round(v * 100) + "%"; },
+    pct2: function (v) { return (v * 100).toFixed(2) + "%"; },
+    num1: function (v) { return v.toFixed(1); },
+    num2: function (v) { return v.toFixed(2); },
+    usd: function (v) { return (v < 0 ? "-$" : "$") + Math.abs(Math.round(v)).toLocaleString("en-US"); },
+    usdk: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-$" : "$";
+      if (a >= 1e12) return s + (a / 1e12).toFixed(2) + "tn";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    ntd: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-NT$" : "NT$";
+      if (a >= 1e9) return s + (a / 1e9).toFixed(2) + "bn";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(1) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    },
+    brl: function (v) {
+      var a = Math.abs(v), s = v < 0 ? "-R$" : "R$";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(2) + "M";
+      if (a >= 1e3) return s + Math.round(a / 1e3) + "k";
+      return s + Math.round(a);
+    }
+  };
+
+  function niceStep(range, n) {
+    if (range <= 0) return 1;
+    var raw = range / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    var step = r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10;
+    return step * mag;
+  }
+
+  // Round the axis outward to a clean step so ticks read 0/10/20 rather than
+  // 0/13/25. Returns the padded bounds alongside the ticks.
+  function axis(lo, hi, n) {
+    if (hi === lo) hi = lo + 1;
+    var step = niceStep(hi - lo, n);
+    var a = Math.floor(lo / step + 1e-9) * step;
+    var b = Math.ceil(hi / step - 1e-9) * step;
+    var out = [];
+    for (var v = a; v <= b + step * 1e-6; v += step) out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+    return { ticks: out, lo: a, hi: b };
+  }
+
+  function nice(max) { return axis(0, max, 4).hi; }
+
+  // ---- vertical bars --------------------------------------------------
+  function bars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: 12, b: 42, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var lo = Math.min(0, Math.min.apply(null, vals));
+    var hi = Math.max.apply(null, vals);
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.08, 4);
+    var top = ax.hi, bot = ax.lo;
+    var y = function (v) { return m.t + ih - ((v - bot) / (top - bot)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = f(t);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: y(0), y2: y(0) }, svg);
+
+    var bw = iw / d.length, pad = Math.min(14, bw * 0.28);
+    d.forEach(function (row, i) {
+      var x0 = m.l + i * bw + pad / 2, w = bw - pad;
+      var v = row.value, yy = v >= 0 ? y(v) : y(0), h = Math.abs(y(v) - y(0));
+      var r = el("rect", {
+        class: "mark", x: x0, y: yy, width: w, height: Math.max(1, h),
+        fill: row.color || o.color || "var(--s1)", rx: 1
+      }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(v) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: x0 + w / 2, y: H - m.b + 15, "text-anchor": "middle" }, svg);
+      lb.textContent = row.label;
+      if (o.labels !== false && d.length <= 14) {
+        var vl = el("text", { class: "val-label", x: x0 + w / 2, y: (v >= 0 ? yy - 5 : yy + h + 12), "text-anchor": "middle" }, svg);
+        vl.textContent = f(v);
+      }
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: y(o.reference), y2: y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: W - m.r, y: y(o.reference) - 5, "text-anchor": "end" }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: y(Math.max(bot, 0)), y2: y(Math.max(bot, 0)) }, svg);
+  }
+
+  // ---- horizontal bars -------------------------------------------------
+  function hbars(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var rowH = o.rowHeight || 24;
+    var W = 620, m = { t: 8, r: 90, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b;
+    var f = o.format || fmt.num1;
+    var vals = d.map(function (x) { return x.value; });
+    var hi = Math.max.apply(null, vals), lo = Math.min(0, Math.min.apply(null, vals));
+    var ax = axis(lo, hi <= 0 ? 0 : hi * 1.04, 4);
+    var top = ax.hi, bot = ax.lo;
+    var iw = W - m.l - m.r;
+    var x = function (v) { return m.l + ((v - bot) / (top - bot)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: x(t), x2: x(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: x(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (row, i) {
+      var yy = m.t + i * rowH + 3, h = rowH - 8;
+      var x0 = row.value >= 0 ? x(0) : x(row.value), w = Math.abs(x(row.value) - x(0));
+      var r = el("rect", { class: "mark", x: x0, y: yy, width: Math.max(1, w), height: h, rx: 1, fill: row.color || o.color || "var(--s1)" }, svg);
+      bind(r, "<b>" + row.label + "</b><br>" + (o.tipLabel || "") + f(row.value) + (row.tip ? "<br>" + row.tip : ""));
+      var lb = el("text", { class: "tick", x: m.l - 8, y: yy + h / 2 + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = row.label.length > 26 ? row.label.slice(0, 25) + "…" : row.label;
+      var vl = el("text", { class: "val-label", x: (row.value >= 0 ? x0 + w + 6 : x0 - 6), y: yy + h / 2 + 3.5, "text-anchor": row.value >= 0 ? "start" : "end" }, svg);
+      vl.textContent = row.right !== undefined ? row.right : f(row.value);
+    });
+    if (bot < 0) el("line", { class: "zero-line", x1: x(0), x2: x(0), y1: m.t, y2: m.t + ih }, svg);
+  }
+
+  // ---- line / area -----------------------------------------------------
+  function line(node, o) {
+    node.innerHTML = "";
+    var series = o.series || [];
+    if (!series.length || !series[0].points.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 230, m = { t: 14, r: o.rightPad || 16, b: 40, l: 52 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fy = o.formatY || fmt.num1, fx = o.formatX || fmt.int;
+    var allX = [], allY = [];
+    series.forEach(function (s) { s.points.forEach(function (p) { allX.push(p[0]); allY.push(p[1]); }); });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, allX);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, allX);
+    var yA = axis(o.yMin !== undefined ? o.yMin : Math.min(0, Math.min.apply(null, allY)),
+                  o.yMax !== undefined ? o.yMax : Math.max.apply(null, allY) * 1.06, 4);
+    var y0 = o.yMin !== undefined ? o.yMin : yA.lo;
+    var y1 = o.yMax !== undefined ? o.yMax : yA.hi;
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0-1e-9&&t<=y1+1e-9;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, o.xTicks || 5).ticks.filter(function(t){return t>=x0-1e-9&&t<=x1+1e-9;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    series.forEach(function (s, si) {
+      var col = s.color || ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)"][si % 4];
+      if (s.band) {
+        var up = s.band.map(function (p) { return X(p[0]) + "," + Y(p[2]); });
+        var dn = s.band.slice().reverse().map(function (p) { return X(p[0]) + "," + Y(p[1]); });
+        el("polygon", { points: up.concat(dn).join(" "), fill: col, opacity: .12 }, svg);
+      }
+      var pts = s.points.map(function (p) { return X(p[0]) + "," + Y(p[1]); }).join(" ");
+      el("polyline", { points: pts, fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+      if (s.label) {
+        var last = s.points[s.points.length - 1];
+        var lb = el("text", { class: "val-label", x: X(last[0]) + 5, y: Y(last[1]) + 3.5, fill: col }, svg);
+        lb.textContent = s.label;
+      }
+      s.points.forEach(function (p) {
+        var c = el("circle", { class: "mark", cx: X(p[0]), cy: Y(p[1]), r: 8, fill: "transparent" }, svg);
+        bind(c, "<b>" + (s.name ? s.name + "<br>" : "") + fx(p[0]) + "</b><br>" + fy(p[1]) + (p[2] ? "<br><span class='k'>" + p[2] + "</span>" : ""));
+      });
+    });
+
+    if (o.reference !== undefined && o.reference !== null) {
+      el("line", { class: "ref-line", x1: m.l, x2: W - m.r, y1: Y(o.reference), y2: Y(o.reference) }, svg);
+      var rl = el("text", { class: "ref-label", x: m.l + 4, y: Y(o.reference) - 5 }, svg);
+      rl.textContent = o.referenceLabel || "";
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: Y(Math.max(y0, 0)), y2: Y(Math.max(y0, 0)) }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- scatter ---------------------------------------------------------
+  function scatter(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var W = 620, H = o.height || 260, m = { t: 14, r: 16, b: 44, l: 54 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var fx = o.formatX || fmt.num1, fy = o.formatY || fmt.num1;
+    var xs = d.map(function (p) { return p.x; }), ys = d.map(function (p) { return p.y; });
+    var x0 = o.xMin !== undefined ? o.xMin : Math.min.apply(null, xs);
+    var x1 = o.xMax !== undefined ? o.xMax : Math.max.apply(null, xs);
+    var y0 = o.yMin !== undefined ? o.yMin : Math.min.apply(null, ys);
+    var y1 = o.yMax !== undefined ? o.yMax : Math.max.apply(null, ys);
+    var X = function (v) { return m.l + ((v - x0) / (x1 - x0 || 1)) * iw; };
+    var Y = function (v) { return m.t + ih - ((v - y0) / (y1 - y0 || 1)) * ih; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(y0, y1, 4).ticks.filter(function(t){return t>=y0&&t<=y1;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) }, svg);
+      var tx = el("text", { class: "tick", x: m.l - 8, y: Y(t) + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = fy(t);
+    });
+    axis(x0, x1, 5).ticks.filter(function(t){return t>=x0&&t<=x1;}).forEach(function (t) {
+      var tx = el("text", { class: "tick", x: X(t), y: H - m.b + 16, "text-anchor": "middle" }, svg);
+      tx.textContent = fx(t);
+    });
+
+    var rMax = o.sizeMax || 0;
+    d.forEach(function (p) {
+      var r = rMax && p.size ? 2.5 + 7 * Math.sqrt(p.size / rMax) : (o.radius || 3.4);
+      var c = el("circle", {
+        class: "mark", cx: X(p.x), cy: Y(p.y), r: r,
+        fill: p.color || o.color || "var(--s1)", opacity: o.opacity || .62,
+        stroke: "#fff", "stroke-width": .6
+      }, svg);
+      bind(c, "<b>" + (p.label || "") + "</b><br><span class='k'>" + (o.xName || "x") + "</span> " + fx(p.x) +
+        "<br><span class='k'>" + (o.yName || "y") + "</span> " + fy(p.y) + (p.tip ? "<br>" + p.tip : ""));
+    });
+
+    if (o.zeroLine && y0 < 0 && y1 > 0) {
+      el("line", { class: "zero-line", x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0) }, svg);
+    }
+    if (o.fit) {
+      el("line", { x1: X(o.fit[0][0]), y1: Y(o.fit[0][1]), x2: X(o.fit[1][0]), y2: Y(o.fit[1][1]), stroke: "var(--ink-3)", "stroke-width": 1.4, "stroke-dasharray": "5 4" }, svg);
+    }
+    el("line", { class: "axis-line", x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih }, svg);
+    if (o.xLabel) { var xl = el("text", { class: "tick mid", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }, svg); xl.textContent = o.xLabel; }
+  }
+
+  // ---- range plot (p10 / q1 / median / q3 / p90) ------------------------
+  function ranges(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    var rowH = 26, W = 620, m = { t: 8, r: 60, b: 26, l: o.labelWidth || 150 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct0;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { lo = Math.min(lo, r.p10); hi = Math.max(hi, r.p90); });
+    var X = function (v) { return m.l + ((v - lo) / (hi - lo || 1)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    axis(lo, hi, 4).ticks.filter(function(t){return t>=lo&&t<=hi;}).forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 8, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      el("line", { x1: X(r.p10), x2: X(r.p90), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.5 }, svg);
+      var box = el("rect", { class: "mark", x: X(r.q1), y: cy - 6, width: Math.max(2, X(r.q3) - X(r.q1)), height: 12, fill: "var(--s1)", opacity: .3, rx: 1 }, svg);
+      var dot = el("circle", { class: "mark", cx: X(r.median), cy: cy, r: 4, fill: "var(--s1)" }, svg);
+      var html = "<b>" + r.label + "</b><br><span class='k'>median</span> " + f(r.median) +
+        "<br><span class='k'>IQR</span> " + f(r.q1) + " to " + f(r.q3) +
+        "<br><span class='k'>p10-p90</span> " + f(r.p10) + " to " + f(r.p90) +
+        (r.n ? "<br><span class='k'>n</span> " + r.n : "");
+      bind(box, html); bind(dot, html);
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label;
+      var vl = el("text", { class: "val-label", x: W - m.r + 6, y: cy + 3.5 }, svg);
+      vl.textContent = f(r.median);
+    });
+  }
+
+  // ---- heatmap ---------------------------------------------------------
+  function heatmap(node, o) {
+    node.innerHTML = "";
+    var rows = o.rows, cols = o.cols, vals = o.values;
+    var cell = 42, W = 620, m = { t: 30, r: 10, b: 34, l: 108 };
+    var gw = Math.min(cell, (W - m.l - m.r) / cols.length);
+    var H = rows.length * cell + m.t + m.b;
+    var f = o.format || fmt.pct0;
+    var max = 0; vals.forEach(function (r) { r.forEach(function (v) { if (v > max) max = v; }); });
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+
+    cols.forEach(function (c, j) {
+      var tx = el("text", { class: "tick", x: m.l + j * gw + gw / 2, y: m.t - 9, "text-anchor": "middle" }, svg);
+      tx.textContent = c;
+    });
+    rows.forEach(function (r, i) {
+      var tx = el("text", { class: "tick", x: m.l - 8, y: m.t + i * cell + cell / 2 + 3.5, "text-anchor": "end" }, svg);
+      tx.textContent = r;
+      cols.forEach(function (c, j) {
+        var v = vals[i][j], t = max ? v / max : 0;
+        var rect = el("rect", {
+          class: "mark", x: m.l + j * gw + 1, y: m.t + i * cell + 1,
+          width: gw - 2, height: cell - 2, rx: 1,
+          fill: "var(--s1)", opacity: 0.06 + 0.9 * Math.pow(t, 0.6)
+        }, svg);
+        bind(rect, "<b>" + r + " → " + c + "</b><br>" + f(v));
+        if (v > 0.005) {
+          var lab = el("text", {
+            x: m.l + j * gw + gw / 2, y: m.t + i * cell + cell / 2 + 3.5,
+            "text-anchor": "middle", "font-size": 10.5,
+            fill: t > 0.55 ? "#fff" : "var(--ink-2)"
+          }, svg);
+          lab.textContent = f(v);
+        }
+      });
+    });
+    var xl = el("text", { class: "tick mid", x: m.l + (cols.length * gw) / 2, y: H - 8, "text-anchor": "middle" }, svg);
+    xl.textContent = o.xLabel || "";
+  }
+
+
+  // ---- dumbbell: two values per row, connected ------------------------
+  function dumbbell(node, o) {
+    node.innerHTML = "";
+    var d = o.data || [];
+    if (!d.length) { node.innerHTML = '<p class="empty">No rows.</p>'; return; }
+    var rowH = o.rowHeight || 30, W = 620, m = { t: 26, r: 70, b: 30, l: o.labelWidth || 118 };
+    var ih = d.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    var f = o.format || fmt.pct1;
+    var lo = 0, hi = 0;
+    d.forEach(function (r) { [r.a, r.b].forEach(function (v) { if (v !== null) hi = Math.max(hi, v); }); });
+    var ax = axis(lo, hi * 1.06, 4), X = function (v) { return m.l + ((v - ax.lo) / (ax.hi - ax.lo)) * iw; };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "xMidYMid meet" }, node);
+    ax.ticks.forEach(function (t) {
+      el("line", { class: "grid-line", x1: X(t), x2: X(t), y1: m.t, y2: m.t + ih }, svg);
+      var tx = el("text", { class: "tick", x: X(t), y: H - 10, "text-anchor": "middle" }, svg);
+      tx.textContent = f(t);
+    });
+    // legend
+    var lg = [[o.aName || "A", o.aColor || "var(--s3)"], [o.bName || "B", o.bColor || "var(--s2)"]];
+    lg.forEach(function (p, i) {
+      el("circle", { cx: m.l + i * 132 + 4, cy: 10, r: 4.5, fill: p[1] }, svg);
+      var t = el("text", { class: "tick mid", x: m.l + i * 132 + 14, y: 13.5 }, svg);
+      t.textContent = p[0];
+    });
+    d.forEach(function (r, i) {
+      var cy = m.t + i * rowH + rowH / 2;
+      if (r.a !== null && r.b !== null) {
+        el("line", { x1: X(r.a), x2: X(r.b), y1: cy, y2: cy, stroke: "var(--rule-strong)", "stroke-width": 1.6 }, svg);
+      }
+      var lb = el("text", { class: "tick", x: m.l - 8, y: cy + 3.5, "text-anchor": "end" }, svg);
+      lb.textContent = r.label;
+      [["a", o.aColor || "var(--s3)", o.aName], ["b", o.bColor || "var(--s2)", o.bName]].forEach(function (p) {
+        if (r[p[0]] === null) return;
+        var c = el("circle", { class: "mark", cx: X(r[p[0]]), cy: cy, r: 5.5, fill: p[1], stroke: "#fff", "stroke-width": 1 }, svg);
+        bind(c, "<b>" + r.label + "</b><br><span class='k'>" + p[2] + "</span> " + f(r[p[0]]) +
+          (r.tip ? "<br>" + r.tip : ""));
+      });
+      if (r.right) {
+        var vl = el("text", { class: "val-label", x: W - m.r + 8, y: cy + 3.5 }, svg);
+        vl.textContent = r.right;
+      }
+      if (r.note) {
+        var nt = el("text", { class: "ref-label", x: m.l + 4, y: cy + 3.5 }, svg);
+        nt.textContent = r.note;
+      }
+    });
+  }
+
+  // ---- table -----------------------------------------------------------
+  function table(node, o) {
+    var rows = o.rows || [];
+    if (!rows.length) { node.innerHTML = '<p class="empty">No rows match these filters.</p>'; return; }
+    var h = "<div class='scroll'><table><thead><tr>";
+    o.columns.forEach(function (c) { h += "<th>" + c.label + "</th>"; });
+    h += "</tr></thead><tbody>";
+    rows.forEach(function (r) {
+      h += "<tr>";
+      o.columns.forEach(function (c) {
+        var v = r[c.key];
+        var cls = c.signed ? (v < 0 ? " class='neg'" : v > 0 ? " class='pos'" : "") : "";
+        h += "<td" + cls + ">" + (c.format ? c.format(v, r) : v) + "</td>";
+      });
+      h += "</tr>";
+    });
+    node.innerHTML = h + "</tbody></table></div>";
+  }
+
+  function kpis(node, items) {
+    node.innerHTML = items.map(function (k) {
+      return "<div class='kpi" + (k.hero ? " hero" : "") + "'><span class='v'>" + k.value + "</span>" +
+        "<span class='l'>" + k.label + "</span>" +
+        (k.delta ? "<span class='d " + (k.deltaClass || "") + "'>" + k.delta + "</span>" : "") + "</div>";
+    }).join("");
+  }
+
+  g.Kit = { bars: bars, hbars: hbars, line: line, scatter: scatter, ranges: ranges, heatmap: heatmap, dumbbell: dumbbell, table: table, kpis: kpis, fmt: fmt };
+})(window);
+
+</script>
+<script>
+
+var D = {"years":[2015,2016,2017,2018],"regions":["Central","East","South","West"],"segments":["Consumer","Corporate","Home Office"],"cats":["Furniture","Office Supplies","Technology"],"subs":["Accessories","Appliances","Art","Binders","Bookcases","Chairs","Copiers","Envelopes","Fasteners","Furnishings","Labels","Machines","Paper","Phones","Storage","Supplies","Tables"],"bands":["0%","1-10%","11-15%","16-20%","21-30%","31-40%","41-50%","51-70%","71%+"],"subCat":[2,1,1,1,0,0,2,1,1,0,1,2,1,2,1,1,0],"A":[[0.0,0.0,0.0,0.0,0.0,12.0,6805.67,1279.54,6805.67,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,4.0,20.0,10762.61,-738.52,15375.16,4612.55,17.0,9227.99],[0.0,0.0,0.0,0.0,5.0,1.0,193.07,-19.87,283.92,90.85,1.0,193.07],[0.0,0.0,0.0,0.0,6.0,5.0,1749.14,-1097.92,3498.28,1749.14,5.0,1749.14],[0.0,0.0,0.0,0.0,7.0,19.0,612.83,-483.23,1532.07,919.24,19.0,612.83],[0.0,0.0,0.0,1.0,0.0,61.0,16654.41,6248.64,16654.41,0.0,0.0,0.0],[0.0,0.0,0.0,1.0,1.0,1.0,247.72,93.58,275.24,27.52,0.0,0.0],[0.0,0.0,0.0,1.0,3.0,69.0,5834.76,427.06,7293.45,1458.69,13.0,2682.94],[0.0,0.0,0.0,1.0,8.0,42.0,4190.69,-7453.44,20953.47,16762.78,42.0,4190.69],[0.0,0.0,0.0,2.0,0.0,7.0,1603.25,549.56,1603.25,0.0,0.0,0.0],[0.0,0.0,0.0,2.0,3.0,28.0,9084.72,1433.26,11355.9,2271.18,6.0,727.29],[0.0,0.0,0.0,2.0,5.0,3.0,9577.6,-1657.48,15962.67,6385.07,3.0,9577.6],[0.0,0.0,1.0,0.0,0.0,3.0,555.22,89.88,555.22,0.0,0.0,0.0],[0.0,0.0,1.0,0.0,4.0,7.0,4816.92,-415.5,6881.31,2064.39,7.0,4816.92],[0.0,0.0,1.0,0.0,5.0,1.0,67.99,-13.0,99.99,32.0,1.0,67.99],[0.0,0.0,1.0,0.0,7.0,8.0,234.05,-117.92,585.12,351.07,8.0,234.05],[0.0,0.0,1.0,1.0,0.0,21.0,2019.13,781.78,2019.13,0.0,0.0,0.0],[0.0,0.0,1.0,1.0,1.0,1.0,65.52,12.38,72.8,7.28,0.0,0.0],[0.0,0.0,1.0,1.0,3.0,37.0,1524.44,121.98,1905.55,381.11,4.0,421.2],[0.0,0.0,1.0,1.0,8.0,16.0,418.85,-779.39,2094.26,1675.41,16.0,418.85],[0.0,0.0,1.0,2.0,0.0,6.0,462.74,134.5,462.74,0.0,0.0,0.0],[0.0,0.0,1.0,2.0,3.0,12.0,3597.43,447.62,4496.79,899.36,1.0,20.78],[0.0,0.0,1.0,2.0,5.0,3.0,6139.65,-883.26,10232.75,4093.1,3.0,6139.65],[0.0,0.0,2.0,0.0,0.0,7.0,3381.0,912.35,3381.0,0.0,0.0,0.0],[0.0,0.0,2.0,0.0,4.0,7.0,3396.62,-377.29,4852.31,1455.69,7.0,3396.62],[0.0,0.0,2.0,0.0,5.0,1.0,300.53,-97.23,441.96,141.43,1.0,300.53],[0.0,0.0,2.0,0.0,7.0,3.0,34.02,-26.51,85.05,51.03,3.0,34.02],[0.0,0.0,2.0,1.0,0.0,19.0,3845.56,1188.9,3845.56,0.0,0.0,0.0],[0.0,0.0,2.0,1.0,1.0,1.0,167.54,37.23,186.15,18.62,0.0,0.0],[0.0,0.0,2.0,1.0,3.0,22.0,1858.61,226.81,2323.26,464.65,1.0,272.74],[0.0,0.0,2.0,1.0,8.0,9.0,174.47,-283.22,872.33,697.86,9.0,174.47],[0.0,0.0,2.0,2.0,0.0,5.0,1202.53,389.97,1202.53,0.0,0.0,0.0],[0.0,0.0,2.0,2.0,3.0,8.0,1683.98,452.26,2104.97,420.99,1.0,46.69],[0.0,0.0,2.0,2.0,4.0,1.0,574.91,156.05,821.3,246.39,0.0,0.0],[0.0,1.0,0.0,0.0,0.0,23.0,5586.7,1368.36,5586.7,0.0,0.0,0.0],[0.0,1.0,0.0,0.0,1.0,6.0,6016.68,714.0,6685.2,668.52,1.0,589.41],[0.0,1.0,0.0,0.0,3.0,18.0,7234.74,-210.04,9043.42,1808.68,7.0,6693.66],[0.0,1.0,0.0,0.0,4.0,10.0,5455.65,-434.9,7793.79,2338.14,8.0,3373.26],[0.0,1.0,0.0,0.0,5.0,5.0,2035.61,-605.7,3392.69,1357.08,5.0,2035.61],[0.0,1.0,0.0,0.0,6.0,1.0,349.96,-216.98,699.93,349.96,1.0,349.96],[0.0,1.0,0.0,1.0,0.0,77.0,8236.04,2036.33,8236.04,0.0,0.0,0.0],[0.0,1.0,0.0,1.0,3.0,75.0,7494.63,1335.04,9368.29,1873.66,7.0,1898.43],[0.0,1.0,0.0,1.0,7.0,20.0,381.18,-286.62,1270.61,889.43,20.0,381.18],[0.0,1.0,0.0,2.0,0.0,27.0,24314.65,7931.43,24314.65,0.0,0.0,0.0],[0.0,1.0,0.0,2.0,3.0,12.0,1691.7,309.56,2114.63,422.93,4.0,306.25],[0.0,1.0,0.0,2.0,5.0,15.0,7397.02,-275.68,12328.37,4931.35,12.0,3857.09],[0.0,1.0,0.0,2.0,7.0,2.0,308.98,-243.89,1029.95,720.96,2.0,308.98],[0.0,1.0,1.0,0.0,0.0,14.0,5050.93,1288.41,5050.93,0.0,0.0,0.0],[0.0,1.0,1.0,0.0,1.0,2.0,1079.29,213.72,1199.21,119.92,0.0,0.0],[0.0,1.0,1.0,0.0,3.0,6.0,1833.65,250.92,2292.06,458.41,0.0,0.0],[0.0,1.0,1.0,0.0,4.0,3.0,1127.42,-147.22,1610.6,483.18,3.0,1127.42],[0.0,1.0,1.0,0.0,5.0,9.0,6732.19,-2519.27,11220.31,4488.12,9.0,6732.19],[0.0,1.0,1.0,0.0,6.0,3.0,886.37,-503.44,1772.74,886.37,3.0,886.37],[0.0,1.0,1.0,1.0,0.0,56.0,10613.79,3083.49,10613.79,0.0,0.0,0.0],[0.0,1.0,1.0,1.0,3.0,34.0,4686.49,0.77,5858.11,1171.62,6.0,2448.3],[0.0,1.0,1.0,1.0,7.0,10.0,649.1,-518.28,2163.66,1514.56,10.0,649.1],[0.0,1.0,1.0,2.0,0.0,10.0,2687.39,824.89,2687.39,0.0,0.0,0.0],[0.0,1.0,1.0,2.0,3.0,2.0,271.0,62.08,338.75,67.75,0.0,0.0],[0.0,1.0,1.0,2.0,5.0,6.0,1622.92,-301.85,2704.87,1081.95,4.0,1518.61],[0.0,1.0,1.0,2.0,7.0,1.0,399.54,-559.36,1331.8,932.26,1.0,399.54],[0.0,1.0,2.0,0.0,0.0,4.0,1067.56,274.98,1067.56,0.0,0.0,0.0],[0.0,1.0,2.0,0.0,1.0,4.0,1145.12,214.18,1272.36,127.24,0.0,0.0],[0.0,1.0,2.0,0.0,3.0,5.0,582.77,16.79,728.46,145.69,1.0,275.95],[0.0,1.0,2.0,0.0,4.0,2.0,562.74,-24.12,803.92,241.18,2.0,562.74],[0.0,1.0,2.0,0.0,5.0,2.0,485.35,-179.37,808.92,323.57,2.0,485.35],[0.0,1.0,2.0,1.0,0.0,23.0,3186.94,867.68,3186.94,0.0,0.0,0.0],[0.0,1.0,2.0,1.0,3.0,16.0,701.7,220.88,877.12,175.42,1.0,10.3],[0.0,1.0,2.0,1.0,7.0,3.0,19.12,-13.96,63.74,44.62,3.0,19.12],[0.0,1.0,2.0,2.0,0.0,9.0,6665.58,3064.38,6665.58,0.0,0.0,0.0],[0.0,1.0,2.0,2.0,3.0,2.0,119.94,22.37,149.92,29.98,0.0,0.0],[0.0,2.0,0.0,0.0,0.0,17.0,7497.14,1172.11,7497.14,0.0,0.0,0.0],[0.0,2.0,0.0,0.0,3.0,15.0,3455.01,179.01,4318.76,863.75,3.0,784.18],[0.0,2.0,0.0,0.0,5.0,1.0,945.04,-299.26,1575.06,630.02,1.0,945.04],[0.0,2.0,0.0,0.0,6.0,1.0,174.06,-110.76,316.47,142.41,1.0,174.06],[0.0,2.0,0.0,1.0,0.0,39.0,5068.22,1749.92,5068.22,0.0,0.0,0.0],[0.0,2.0,0.0,1.0,3.0,41.0,2588.96,462.77,3236.2,647.24,5.0,580.94],[0.0,2.0,0.0,1.0,7.0,10.0,666.15,-456.73,2220.5,1554.35,10.0,666.15],[0.0,2.0,0.0,2.0,0.0,18.0,5892.8,1745.46,5892.8,0.0,0.0,0.0],[0.0,2.0,0.0,2.0,3.0,9.0,2098.46,274.15,2623.08,524.62,1.0,247.8],[0.0,2.0,0.0,2.0,6.0,2.0,3924.98,-1516.99,7849.95,3924.98,2.0,3924.98],[0.0,2.0,1.0,0.0,0.0,12.0,5456.82,1228.61,5456.82,0.0,0.0,0.0],[0.0,2.0,1.0,0.0,3.0,9.0,2358.52,245.92,2948.15,589.63,0.0,0.0],[0.0,2.0,1.0,0.0,5.0,1.0,328.59,-147.87,547.65,219.06,1.0,328.59],[0.0,2.0,1.0,1.0,0.0,63.0,13742.35,3328.84,13742.35,0.0,0.0,0.0],[0.0,2.0,1.0,1.0,3.0,24.0,988.08,154.05,1235.1,247.02,3.0,214.54],[0.0,2.0,1.0,1.0,7.0,8.0,144.08,-106.77,480.28,336.2,8.0,144.08],[0.0,2.0,1.0,2.0,0.0,18.0,9423.7,2711.15,9423.7,0.0,0.0,0.0],[0.0,2.0,1.0,2.0,3.0,6.0,2242.58,288.24,2803.22,560.64,0.0,0.0],[0.0,2.0,2.0,0.0,0.0,7.0,6599.71,1709.45,6599.71,0.0,0.0,0.0],[0.0,2.0,2.0,0.0,3.0,2.0,153.12,23.37,191.4,38.28,0.0,0.0],[0.0,2.0,2.0,1.0,0.0,14.0,1798.69,389.87,1798.69,0.0,0.0,0.0],[0.0,2.0,2.0,1.0,3.0,15.0,545.75,95.92,682.19,136.44,1.0,5.55],[0.0,2.0,2.0,1.0,7.0,2.0,416.59,-346.55,1388.64,972.05,2.0,416.59],[0.0,2.0,2.0,2.0,0.0,10.0,2445.9,621.54,2445.9,0.0,0.0,0.0],[0.0,2.0,2.0,2.0,3.0,3.0,1430.77,311.19,1788.46,357.69,0.0,0.0],[0.0,2.0,2.0,2.0,6.0,2.0,23459.78,-1827.5,46919.56,23459.78,2.0,23459.78],[0.0,3.0,0.0,0.0,0.0,29.0,3538.91,916.66,3538.91,0.0,0.0,0.0],[0.0,3.0,0.0,0.0,2.0,5.0,1307.97,17.73,1538.79,230.82,1.0,205.67],[0.0,3.0,0.0,0.0,3.0,39.0,21518.5,958.13,26898.12,5379.62,11.0,4054.06],[0.0,3.0,0.0,0.0,6.0,3.0,640.22,-431.95,1280.44,640.22,3.0,640.22],[0.0,3.0,0.0,0.0,7.0,1.0,181.47,-320.6,604.9,423.43,1.0,181.47],[0.0,3.0,0.0,1.0,0.0,129.0,20852.78,3526.25,20852.78,0.0,0.0,0.0],[0.0,3.0,0.0,1.0,3.0,70.0,11163.66,2677.43,13954.57,2790.91,5.0,1767.75],[0.0,3.0,0.0,1.0,7.0,8.0,1047.54,-765.72,3491.81,2444.27,8.0,1047.54],[0.0,3.0,0.0,2.0,0.0,25.0,4986.79,1566.06,4986.79,0.0,0.0,0.0],[0.0,3.0,0.0,2.0,3.0,48.0,24698.21,2996.04,30872.76,6174.55,7.0,1259.48],[0.0,3.0,0.0,2.0,7.0,1.0,29.92,-21.94,99.75,69.82,1.0,29.92],[0.0,3.0,1.0,0.0,0.0,16.0,3639.84,690.88,3639.84,0.0,0.0,0.0],[0.0,3.0,1.0,0.0,2.0,5.0,1958.14,18.63,2303.69,345.55,2.0,925.5],[0.0,3.0,1.0,0.0,3.0,23.0,8900.43,244.36,11125.54,2225.11,6.0,2447.02],[0.0,3.0,1.0,0.0,6.0,1.0,73.92,-45.83,147.83,73.92,1.0,73.92],[0.0,3.0,1.0,1.0,0.0,73.0,8802.05,2171.39,8802.05,0.0,0.0,0.0],[0.0,3.0,1.0,1.0,3.0,42.0,4648.58,1294.91,5810.73,1162.15,2.0,116.06],[0.0,3.0,1.0,1.0,7.0,3.0,635.8,-527.04,2119.33,1483.53,3.0,635.8],[0.0,3.0,1.0,2.0,0.0,15.0,1679.96,482.72,1679.96,0.0,0.0,0.0],[0.0,3.0,1.0,2.0,3.0,21.0,5869.42,927.15,7336.78,1467.36,2.0,87.13],[0.0,3.0,2.0,0.0,0.0,12.0,3272.97,659.58,3272.97,0.0,0.0,0.0],[0.0,3.0,2.0,0.0,2.0,3.0,1729.5,72.7,2034.7,305.21,1.0,411.33],[0.0,3.0,2.0,0.0,3.0,8.0,3320.59,281.72,4150.74,830.15,1.0,259.14],[0.0,3.0,2.0,1.0,0.0,50.0,4847.41,1328.79,4847.41,0.0,0.0,0.0],[0.0,3.0,2.0,1.0,3.0,13.0,849.03,268.46,1061.29,212.26,1.0,49.79],[0.0,3.0,2.0,2.0,0.0,6.0,1474.6,302.82,1474.6,0.0,0.0,0.0],[0.0,3.0,2.0,2.0,3.0,12.0,6214.82,776.36,7768.53,1553.71,1.0,219.17],[1.0,0.0,0.0,0.0,0.0,19.0,10305.26,2505.14,10305.26,0.0,0.0,0.0],[1.0,0.0,0.0,0.0,4.0,22.0,9443.37,-1330.07,13490.53,4047.16,22.0,9443.37],[1.0,0.0,0.0,0.0,5.0,2.0,1966.4,-455.6,2891.76,925.36,2.0,1966.4],[1.0,0.0,0.0,0.0,7.0,14.0,590.89,-478.63,1477.22,886.33,14.0,590.89],[1.0,0.0,0.0,1.0,0.0,45.0,3214.0,1048.01,3214.0,0.0,0.0,0.0],[1.0,0.0,0.0,1.0,1.0,2.0,913.99,161.33,1015.54,101.55,0.0,0.0],[1.0,0.0,0.0,1.0,3.0,52.0,5475.45,153.13,6844.31,1368.86,10.0,2435.25],[1.0,0.0,0.0,1.0,8.0,38.0,1453.4,-3264.58,7266.98,5813.58,38.0,1453.4],[1.0,0.0,0.0,2.0,0.0,20.0,6138.91,1668.72,6138.91,0.0,0.0,0.0],[1.0,0.0,0.0,2.0,3.0,31.0,9473.15,1801.18,11841.44,2368.29,3.0,115.16],[1.0,0.0,0.0,2.0,5.0,2.0,687.45,-46.32,1145.75,458.3,1.0,399.54],[1.0,0.0,1.0,0.0,0.0,9.0,3396.38,638.14,3396.38,0.0,0.0,0.0],[1.0,0.0,1.0,0.0,4.0,4.0,687.41,-108.55,982.02,294.61,4.0,687.41],[1.0,0.0,1.0,0.0,5.0,3.0,1843.33,-226.15,2710.78,867.45,3.0,1843.33],[1.0,0.0,1.0,0.0,7.0,10.0,298.05,-227.52,745.13,447.08,10.0,298.05],[1.0,0.0,1.0,1.0,0.0,29.0,2768.44,897.78,2768.44,0.0,0.0,0.0],[1.0,0.0,1.0,1.0,1.0,3.0,708.47,230.92,787.19,78.72,0.0,0.0],[1.0,0.0,1.0,1.0,3.0,38.0,2016.37,415.68,2520.46,504.09,5.0,212.4],[1.0,0.0,1.0,1.0,8.0,16.0,219.24,-419.89,1096.2,876.96,16.0,219.24],[1.0,0.0,1.0,2.0,0.0,10.0,7389.76,3018.14,7389.76,0.0,0.0,0.0],[1.0,0.0,1.0,2.0,3.0,20.0,9272.28,1716.63,11590.35,2318.07,0.0,0.0],[1.0,0.0,1.0,2.0,5.0,1.0,479.99,56.0,799.98,319.99,0.0,0.0],[1.0,0.0,2.0,0.0,0.0,8.0,3409.17,737.39,3409.17,0.0,0.0,0.0],[1.0,0.0,2.0,0.0,4.0,6.0,1633.0,-299.2,2332.85,699.86,6.0,1633.0],[1.0,0.0,2.0,0.0,5.0,2.0,915.86,-114.65,1346.86,431.0,2.0,915.86],[1.0,0.0,2.0,0.0,6.0,1.0,796.42,-525.64,1592.85,796.42,1.0,796.42],[1.0,0.0,2.0,0.0,7.0,2.0,306.5,-345.7,766.25,459.75,2.0,306.5],[1.0,0.0,2.0,1.0,0.0,24.0,6371.34,2686.08,6371.34,0.0,0.0,0.0],[1.0,0.0,2.0,1.0,1.0,2.0,1037.23,287.2,1152.48,115.25,0.0,0.0],[1.0,0.0,2.0,1.0,3.0,11.0,988.45,218.39,1235.56,247.11,2.0,81.79],[1.0,0.0,2.0,1.0,8.0,11.0,295.02,-634.01,1475.11,1180.09,11.0,295.02],[1.0,0.0,2.0,2.0,0.0,8.0,4188.25,1363.64,4188.25,0.0,0.0,0.0],[1.0,0.0,2.0,2.0,3.0,10.0,3590.46,452.54,4488.08,897.62,1.0,27.17],[1.0,0.0,2.0,2.0,4.0,1.0,600.53,137.26,857.9,257.37,0.0,0.0],[1.0,1.0,0.0,0.0,0.0,16.0,4973.12,1230.9,4973.12,0.0,0.0,0.0],[1.0,1.0,0.0,0.0,1.0,13.0,4780.12,587.27,5311.25,531.12,0.0,0.0],[1.0,1.0,0.0,0.0,3.0,13.0,8336.86,401.07,10421.07,2084.21,1.0,2003.92],[1.0,1.0,0.0,0.0,4.0,5.0,1835.08,-199.52,2621.54,786.46,5.0,1835.08],[1.0,1.0,0.0,0.0,5.0,7.0,4033.07,-1341.12,6721.78,2688.71,7.0,4033.07],[1.0,1.0,0.0,0.0,6.0,3.0,3420.39,-1885.67,6840.78,3420.39,3.0,3420.39],[1.0,1.0,0.0,1.0,0.0,105.0,13887.83,4847.85,13887.83,0.0,0.0,0.0],[1.0,1.0,0.0,1.0,3.0,64.0,10477.4,2221.28,13096.75,2619.35,8.0,1633.1],[1.0,1.0,0.0,1.0,7.0,17.0,435.95,-343.71,1453.17,1017.22,17.0,435.95],[1.0,1.0,0.0,2.0,0.0,40.0,19899.27,6056.67,19899.27,0.0,0.0,0.0],[1.0,1.0,0.0,2.0,3.0,16.0,7495.23,2069.9,9369.04,1873.81,4.0,722.57],[1.0,1.0,0.0,2.0,5.0,12.0,3178.96,-579.73,5298.26,2119.3,9.0,2787.07],[1.0,1.0,0.0,2.0,7.0,2.0,2279.98,-3023.98,7599.94,5319.96,2.0,2279.98],[1.0,1.0,1.0,0.0,0.0,15.0,6171.62,1514.73,6171.62,0.0,0.0,0.0],[1.0,1.0,1.0,0.0,1.0,5.0,3767.87,512.0,4186.52,418.65,0.0,0.0],[1.0,1.0,1.0,0.0,3.0,11.0,1597.7,-42.31,1997.13,399.43,5.0,816.72],[1.0,1.0,1.0,0.0,4.0,6.0,2131.27,-201.24,3044.67,913.4,5.0,1708.64],[1.0,1.0,1.0,0.0,5.0,3.0,2314.53,-660.82,3857.55,1543.02,3.0,2314.53],[1.0,1.0,1.0,0.0,6.0,2.0,935.39,-621.02,1870.78,935.39,2.0,935.39],[1.0,1.0,1.0,1.0,0.0,68.0,7818.35,2233.59,7818.35,0.0,0.0,0.0],[1.0,1.0,1.0,1.0,3.0,32.0,2519.78,684.29,3149.72,629.94,3.0,209.57],[1.0,1.0,1.0,1.0,7.0,12.0,298.94,-219.83,996.48,697.54,12.0,298.94],[1.0,1.0,1.0,2.0,0.0,28.0,13021.44,4545.95,13021.44,0.0,0.0,0.0],[1.0,1.0,1.0,2.0,3.0,4.0,141.46,-0.06,176.82,35.36,2.0,41.49],[1.0,1.0,1.0,2.0,5.0,8.0,2328.36,-442.16,3880.6,1552.24,7.0,2301.98],[1.0,1.0,1.0,2.0,7.0,2.0,1670.34,-1288.04,5567.8,3897.46,2.0,1670.34],[1.0,1.0,2.0,0.0,0.0,14.0,1890.83,453.11,1890.83,0.0,0.0,0.0],[1.0,1.0,2.0,0.0,1.0,2.0,2893.09,613.78,3214.54,321.45,0.0,0.0],[1.0,1.0,2.0,0.0,3.0,6.0,2196.22,104.95,2745.28,549.06,1.0,547.14],[1.0,1.0,2.0,0.0,4.0,3.0,1843.6,-198.79,2633.72,790.12,2.0,1397.54],[1.0,1.0,2.0,0.0,5.0,1.0,344.22,-103.27,573.7,229.48,1.0,344.22],[1.0,1.0,2.0,0.0,6.0,1.0,352.45,-211.47,704.9,352.45,1.0,352.45],[1.0,1.0,2.0,1.0,0.0,49.0,4625.51,1634.7,4625.51,0.0,0.0,0.0],[1.0,1.0,2.0,1.0,3.0,28.0,2399.66,130.53,2999.58,599.92,4.0,747.98],[1.0,1.0,2.0,1.0,7.0,7.0,191.82,-148.05,639.4,447.58,7.0,191.82],[1.0,1.0,2.0,2.0,0.0,15.0,7776.93,2582.4,7776.93,0.0,0.0,0.0],[1.0,1.0,2.0,2.0,3.0,6.0,1261.82,352.07,1577.28,315.46,2.0,83.34],[1.0,1.0,2.0,2.0,5.0,3.0,805.59,-175.24,1342.65,537.06,3.0,805.59],[1.0,2.0,0.0,0.0,0.0,21.0,8291.6,1872.02,8291.6,0.0,0.0,0.0],[1.0,2.0,0.0,0.0,3.0,12.0,2533.64,-34.36,3167.05,633.41,3.0,1283.86],[1.0,2.0,0.0,0.0,5.0,1.0,4297.64,-1862.31,7162.74,2865.1,1.0,4297.64],[1.0,2.0,0.0,0.0,6.0,3.0,1524.55,-616.65,2771.91,1247.36,3.0,1524.55],[1.0,2.0,0.0,1.0,0.0,65.0,13326.46,5374.6,13326.46,0.0,0.0,0.0],[1.0,2.0,0.0,1.0,3.0,32.0,4728.34,-4.98,5910.42,1182.08,4.0,2319.19],[1.0,2.0,0.0,1.0,7.0,17.0,3433.2,-2334.91,11444.01,8010.81,17.0,3433.2],[1.0,2.0,0.0,2.0,0.0,20.0,9608.84,3165.31,9608.84,0.0,0.0,0.0],[1.0,2.0,0.0,2.0,3.0,14.0,1428.97,167.51,1786.21,357.24,5.0,336.15],[1.0,2.0,0.0,2.0,6.0,1.0,32.98,-1.98,65.97,32.98,1.0,32.98],[1.0,2.0,1.0,0.0,0.0,7.0,1594.06,468.97,1594.06,0.0,0.0,0.0],[1.0,2.0,1.0,0.0,3.0,23.0,4456.6,201.59,5570.75,1114.15,3.0,1703.81],[1.0,2.0,1.0,1.0,0.0,30.0,2901.04,1192.95,2901.04,0.0,0.0,0.0],[1.0,2.0,1.0,1.0,3.0,31.0,3381.13,344.89,4226.41,845.28,1.0,516.96],[1.0,2.0,1.0,1.0,7.0,15.0,1698.16,-1297.91,5660.52,3962.36,15.0,1698.16],[1.0,2.0,1.0,2.0,0.0,6.0,2063.97,687.93,2063.97,0.0,0.0,0.0],[1.0,2.0,1.0,2.0,3.0,9.0,2012.38,297.9,2515.47,503.09,1.0,72.74],[1.0,2.0,2.0,0.0,0.0,5.0,238.8,48.06,238.8,0.0,0.0,0.0],[1.0,2.0,2.0,0.0,3.0,1.0,1166.92,131.28,1458.65,291.73,0.0,0.0],[1.0,2.0,2.0,1.0,0.0,11.0,801.6,338.97,801.6,0.0,0.0,0.0],[1.0,2.0,2.0,1.0,3.0,9.0,969.34,7.0,1211.68,242.34,2.0,745.49],[1.0,2.0,2.0,1.0,7.0,3.0,14.03,-10.5,46.76,32.73,3.0,14.03],[1.0,2.0,2.0,2.0,0.0,2.0,431.82,100.84,431.82,0.0,0.0,0.0],[1.0,2.0,2.0,2.0,3.0,2.0,423.91,82.38,529.89,105.98,0.0,0.0],[1.0,3.0,0.0,0.0,0.0,37.0,10104.21,2100.85,10104.21,0.0,0.0,0.0],[1.0,3.0,0.0,0.0,2.0,9.0,3309.49,-71.83,3893.52,584.03,6.0,2455.33],[1.0,3.0,0.0,0.0,3.0,33.0,12629.17,371.55,15786.46,3157.29,9.0,2539.62],[1.0,3.0,0.0,0.0,6.0,3.0,1035.62,-641.31,2071.23,1035.62,3.0,1035.62],[1.0,3.0,0.0,0.0,7.0,5.0,999.46,-1473.84,3331.52,2332.06,5.0,999.46],[1.0,3.0,0.0,1.0,0.0,131.0,16671.99,3763.67,16671.99,0.0,0.0,0.0],[1.0,3.0,0.0,1.0,3.0,80.0,5636.35,1228.13,7045.44,1409.09,3.0,602.21],[1.0,3.0,0.0,1.0,7.0,8.0,81.46,-57.32,271.52,190.06,8.0,81.46],[1.0,3.0,0.0,2.0,0.0,25.0,7451.78,2539.14,7451.78,0.0,0.0,0.0],[1.0,3.0,0.0,2.0,3.0,48.0,24714.67,3173.35,30893.34,6178.67,8.0,892.27],[1.0,3.0,1.0,0.0,0.0,18.0,5454.01,1184.58,5454.01,0.0,0.0,0.0],[1.0,3.0,1.0,0.0,2.0,3.0,2649.19,277.45,3116.69,467.5,0.0,0.0],[1.0,3.0,1.0,0.0,3.0,20.0,8663.67,256.46,10829.59,2165.92,7.0,3052.77],[1.0,3.0,1.0,1.0,0.0,58.0,7243.15,2397.28,7243.15,0.0,0.0,0.0],[1.0,3.0,1.0,1.0,3.0,38.0,3152.48,230.82,3940.6,788.12,3.0,1202.19],[1.0,3.0,1.0,1.0,7.0,5.0,175.62,-126.13,585.4,409.78,5.0,175.62],[1.0,3.0,1.0,2.0,0.0,11.0,4302.95,1855.76,4302.95,0.0,0.0,0.0],[1.0,3.0,1.0,2.0,3.0,22.0,5152.14,755.52,6440.18,1288.04,3.0,128.85],[1.0,3.0,1.0,2.0,7.0,1.0,59.99,-46.0,199.98,139.99,1.0,59.99],[1.0,3.0,2.0,0.0,0.0,11.0,3460.35,771.95,3460.35,0.0,0.0,0.0],[1.0,3.0,2.0,0.0,3.0,12.0,8699.78,309.2,10874.73,2174.95,4.0,1650.4],[1.0,3.0,2.0,1.0,0.0,38.0,4472.92,1114.31,4472.92,0.0,0.0,0.0],[1.0,3.0,2.0,1.0,3.0,15.0,415.87,127.41,519.84,103.97,0.0,0.0],[1.0,3.0,2.0,1.0,7.0,2.0,13.69,-9.43,45.64,31.95,2.0,13.69],[1.0,3.0,2.0,2.0,0.0,5.0,853.89,230.63,853.89,0.0,0.0,0.0],[1.0,3.0,2.0,2.0,3.0,4.0,2562.34,230.0,3202.93,640.59,0.0,0.0],[2.0,0.0,0.0,0.0,0.0,21.0,7646.16,1538.0,7646.16,0.0,0.0,0.0],[2.0,0.0,0.0,0.0,4.0,15.0,5352.12,-699.15,7645.88,2293.76,12.0,4067.36],[2.0,0.0,0.0,0.0,5.0,4.0,3750.64,-609.34,5515.64,1765.0,4.0,3750.64],[2.0,0.0,0.0,0.0,6.0,4.0,1550.78,-1058.96,3101.55,1550.78,4.0,1550.78],[2.0,0.0,0.0,0.0,7.0,19.0,1074.54,-965.97,2686.35,1611.81,19.0,1074.54],[2.0,0.0,0.0,1.0,0.0,54.0,14323.8,6050.51,14323.8,0.0,0.0,0.0],[2.0,0.0,0.0,1.0,1.0,3.0,721.81,166.92,802.01,80.2,0.0,0.0],[2.0,0.0,0.0,1.0,3.0,85.0,10306.06,-73.41,12882.58,2576.52,10.0,4897.08],[2.0,0.0,0.0,1.0,8.0,32.0,1339.45,-2359.55,6697.25,5357.8,32.0,1339.45],[2.0,0.0,0.0,2.0,0.0,26.0,8448.17,2345.58,8448.17,0.0,0.0,0.0],[2.0,0.0,0.0,2.0,3.0,34.0,10542.7,891.06,13178.38,2635.68,6.0,612.85],[2.0,0.0,0.0,2.0,4.0,1.0,1362.9,-19.47,1947.0,584.1,1.0,1362.9],[2.0,0.0,0.0,2.0,5.0,1.0,287.91,33.59,479.85,191.94,0.0,0.0],[2.0,0.0,1.0,0.0,0.0,20.0,17531.04,3593.6,17531.04,0.0,0.0,0.0],[2.0,0.0,1.0,0.0,4.0,16.0,6342.29,-615.77,9060.41,2718.12,14.0,5572.36],[2.0,0.0,1.0,0.0,5.0,2.0,1738.53,-363.07,2556.66,818.13,2.0,1738.53],[2.0,0.0,1.0,0.0,7.0,13.0,634.27,-430.34,1585.67,951.4,13.0,634.27],[2.0,0.0,1.0,1.0,0.0,42.0,4360.07,1653.76,4360.07,0.0,0.0,0.0],[2.0,0.0,1.0,1.0,1.0,2.0,374.44,78.07,416.04,41.6,0.0,0.0],[2.0,0.0,1.0,1.0,3.0,48.0,4222.38,600.66,5277.98,1055.6,3.0,213.31],[2.0,0.0,1.0,1.0,8.0,19.0,868.81,-1699.03,4344.06,3475.25,19.0,868.81],[2.0,0.0,1.0,2.0,0.0,15.0,19870.64,9052.14,19870.64,0.0,0.0,0.0],[2.0,0.0,1.0,2.0,3.0,20.0,4771.65,572.35,5964.56,1192.91,4.0,380.32],[2.0,0.0,2.0,0.0,0.0,7.0,2152.94,481.17,2152.94,0.0,0.0,0.0],[2.0,0.0,2.0,0.0,4.0,4.0,2179.97,-223.73,3114.24,934.27,4.0,2179.97],[2.0,0.0,2.0,0.0,7.0,11.0,819.92,-899.94,2049.81,1229.89,11.0,819.92],[2.0,0.0,2.0,1.0,0.0,35.0,7080.45,2297.91,7080.45,0.0,0.0,0.0],[2.0,0.0,2.0,1.0,3.0,21.0,2021.44,77.79,2526.8,505.36,2.0,957.67],[2.0,0.0,2.0,1.0,8.0,10.0,174.07,-401.47,870.37,696.3,10.0,174.07],[2.0,0.0,2.0,2.0,0.0,9.0,2199.99,690.26,2199.99,0.0,0.0,0.0],[2.0,0.0,2.0,2.0,3.0,9.0,2371.46,151.81,2964.33,592.87,3.0,812.5],[2.0,0.0,2.0,2.0,4.0,1.0,1007.98,43.2,1439.97,431.99,0.0,0.0],[2.0,1.0,0.0,0.0,0.0,34.0,6206.11,1670.59,6206.11,0.0,0.0,0.0],[2.0,1.0,0.0,0.0,1.0,12.0,8479.91,1319.88,9422.12,942.21,0.0,0.0],[2.0,1.0,0.0,0.0,3.0,18.0,3529.31,94.16,4411.64,882.33,5.0,1746.9],[2.0,1.0,0.0,0.0,4.0,20.0,8718.25,-605.75,12454.64,3736.39,17.0,6765.77],[2.0,1.0,0.0,0.0,5.0,4.0,1776.36,-600.2,2960.6,1184.24,4.0,1776.36],[2.0,1.0,0.0,0.0,6.0,3.0,778.9,-487.24,1557.79,778.9,3.0,778.9],[2.0,1.0,0.0,1.0,0.0,143.0,17347.63,4716.26,17347.63,0.0,0.0,0.0],[2.0,1.0,0.0,1.0,3.0,90.0,9725.2,1703.42,12156.5,2431.3,9.0,1832.18],[2.0,1.0,0.0,1.0,7.0,17.0,2148.33,-1464.21,7161.1,5012.77,17.0,2148.33],[2.0,1.0,0.0,2.0,0.0,37.0,16087.13,5641.34,16087.13,0.0,0.0,0.0],[2.0,1.0,0.0,2.0,3.0,7.0,794.56,-12.35,993.2,198.64,1.0,431.98],[2.0,1.0,0.0,2.0,5.0,14.0,13571.02,921.42,22618.36,9047.34,11.0,2531.09],[2.0,1.0,0.0,2.0,7.0,3.0,4755.27,-6789.21,15850.89,11095.62,3.0,4755.27],[2.0,1.0,1.0,0.0,0.0,26.0,3893.8,969.51,3893.8,0.0,0.0,0.0],[2.0,1.0,1.0,0.0,1.0,5.0,2432.81,431.46,2703.12,270.31,0.0,0.0],[2.0,1.0,1.0,0.0,3.0,7.0,1627.46,0.54,2034.32,406.86,2.0,865.54],[2.0,1.0,1.0,0.0,4.0,4.0,1614.97,-185.98,2307.1,692.13,4.0,1614.97],[2.0,1.0,1.0,0.0,5.0,9.0,3027.98,-1144.66,5046.64,2018.66,9.0,3027.98],[2.0,1.0,1.0,0.0,6.0,1.0,163.88,-81.94,327.76,163.88,1.0,163.88],[2.0,1.0,1.0,1.0,0.0,79.0,11878.99,3059.25,11878.99,0.0,0.0,0.0],[2.0,1.0,1.0,1.0,3.0,54.0,5780.91,914.28,7226.14,1445.23,9.0,1273.02],[2.0,1.0,1.0,1.0,7.0,13.0,294.69,-221.37,982.3,687.61,13.0,294.69],[2.0,1.0,1.0,2.0,0.0,21.0,17068.83,5192.51,17068.83,0.0,0.0,0.0],[2.0,1.0,1.0,2.0,3.0,6.0,1691.82,298.97,2114.77,422.95,0.0,0.0],[2.0,1.0,1.0,2.0,5.0,9.0,3028.06,-420.75,5046.77,2018.71,8.0,2188.07],[2.0,1.0,1.0,2.0,7.0,2.0,791.09,-962.9,2636.97,1845.88,2.0,791.09],[2.0,1.0,2.0,0.0,0.0,5.0,1523.91,354.02,1523.91,0.0,0.0,0.0],[2.0,1.0,2.0,0.0,1.0,2.0,580.41,54.68,644.9,64.49,1.0,145.76],[2.0,1.0,2.0,0.0,3.0,7.0,455.53,84.02,569.41,113.88,0.0,0.0],[2.0,1.0,2.0,0.0,4.0,1.0,470.16,-13.43,671.65,201.5,1.0,470.16],[2.0,1.0,2.0,0.0,5.0,2.0,1020.47,-397.84,1700.78,680.31,2.0,1020.47],[2.0,1.0,2.0,0.0,6.0,1.0,86.97,-48.7,173.94,86.97,1.0,86.97],[2.0,1.0,2.0,1.0,0.0,31.0,6154.88,1796.98,6154.88,0.0,0.0,0.0],[2.0,1.0,2.0,1.0,3.0,41.0,7043.63,1976.08,8804.54,1760.91,1.0,124.61],[2.0,1.0,2.0,1.0,7.0,10.0,1426.94,-981.6,4756.48,3329.54,10.0,1426.94],[2.0,1.0,2.0,2.0,0.0,13.0,10670.82,4024.35,10670.82,0.0,0.0,0.0],[2.0,1.0,2.0,2.0,3.0,6.0,786.02,19.2,982.52,196.5,3.0,402.86],[2.0,1.0,2.0,2.0,5.0,9.0,3252.83,-683.18,5421.39,2168.56,9.0,3252.83],[2.0,2.0,0.0,0.0,0.0,30.0,15392.8,3389.91,15392.8,0.0,0.0,0.0],[2.0,2.0,0.0,0.0,3.0,13.0,2100.86,81.77,2626.07,525.21,2.0,553.5],[2.0,2.0,0.0,0.0,5.0,3.0,1033.02,-386.64,1721.7,688.68,3.0,1033.02],[2.0,2.0,0.0,0.0,6.0,1.0,331.02,-114.35,601.86,270.84,1.0,331.02],[2.0,2.0,0.0,1.0,0.0,69.0,6484.73,1674.06,6484.73,0.0,0.0,0.0],[2.0,2.0,0.0,1.0,3.0,44.0,4404.53,511.41,5505.66,1101.13,1.0,387.72],[2.0,2.0,0.0,1.0,7.0,18.0,357.27,-264.72,1190.89,833.62,18.0,357.27],[2.0,2.0,0.0,2.0,0.0,21.0,15148.53,5044.56,15148.53,0.0,0.0,0.0],[2.0,2.0,0.0,2.0,3.0,20.0,7155.75,766.63,8944.69,1788.94,3.0,177.22],[2.0,2.0,0.0,2.0,6.0,1.0,695.7,-27.83,1391.4,695.7,1.0,695.7],[2.0,2.0,1.0,0.0,0.0,7.0,3804.71,844.3,3804.71,0.0,0.0,0.0],[2.0,2.0,1.0,0.0,3.0,11.0,1342.47,-31.58,1678.09,335.62,4.0,828.87],[2.0,2.0,1.0,0.0,5.0,3.0,1586.3,-520.93,2643.83,1057.53,3.0,1586.3],[2.0,2.0,1.0,0.0,6.0,2.0,945.73,-422.91,1719.51,773.78,2.0,945.73],[2.0,2.0,1.0,1.0,0.0,29.0,6049.73,1668.92,6049.73,0.0,0.0,0.0],[2.0,2.0,1.0,1.0,3.0,25.0,2297.83,-92.71,2872.29,574.46,5.0,1349.0],[2.0,2.0,1.0,1.0,7.0,13.0,469.46,-329.94,1564.85,1095.39,13.0,469.46],[2.0,2.0,1.0,2.0,0.0,8.0,6966.02,2724.95,6966.02,0.0,0.0,0.0],[2.0,2.0,1.0,2.0,3.0,10.0,2967.17,368.89,3708.96,741.79,0.0,0.0],[2.0,2.0,1.0,2.0,6.0,1.0,265.48,-111.5,530.95,265.48,1.0,265.48],[2.0,2.0,2.0,0.0,0.0,12.0,980.42,282.38,980.42,0.0,0.0,0.0],[2.0,2.0,2.0,0.0,3.0,3.0,404.11,24.47,505.14,101.03,0.0,0.0],[2.0,2.0,2.0,1.0,0.0,34.0,6320.76,2281.59,6320.76,0.0,0.0,0.0],[2.0,2.0,2.0,1.0,3.0,13.0,1967.63,112.81,2459.54,491.91,2.0,544.82],[2.0,2.0,2.0,1.0,7.0,9.0,314.69,-236.87,1048.98,734.29,9.0,314.69],[2.0,2.0,2.0,2.0,0.0,4.0,761.45,166.47,761.45,0.0,0.0,0.0],[2.0,2.0,2.0,2.0,3.0,8.0,2970.58,301.49,3713.23,742.65,1.0,431.98],[2.0,2.0,2.0,2.0,6.0,1.0,91.48,-1.83,182.95,91.48,1.0,91.48],[2.0,3.0,0.0,0.0,0.0,38.0,6286.46,2071.55,6286.46,0.0,0.0,0.0],[2.0,3.0,0.0,0.0,2.0,6.0,5945.33,418.83,6994.5,1049.18,1.0,205.67],[2.0,3.0,0.0,0.0,3.0,45.0,19942.88,-148.78,24928.6,4985.72,18.0,8011.54],[2.0,3.0,0.0,0.0,6.0,1.0,393.16,-204.45,786.33,393.16,1.0,393.16],[2.0,3.0,0.0,0.0,7.0,1.0,72.29,-98.8,240.98,168.69,1.0,72.29],[2.0,3.0,0.0,1.0,0.0,173.0,13437.44,4188.54,13437.44,0.0,0.0,0.0],[2.0,3.0,0.0,1.0,3.0,69.0,5471.71,1649.01,6839.64,1367.93,2.0,276.87],[2.0,3.0,0.0,1.0,7.0,11.0,201.37,-148.38,671.23,469.86,11.0,201.37],[2.0,3.0,0.0,2.0,0.0,22.0,10310.01,2761.56,10310.01,0.0,0.0,0.0],[2.0,3.0,0.0,2.0,3.0,40.0,20894.05,3511.14,26117.56,5223.51,6.0,443.74],[2.0,3.0,0.0,2.0,7.0,1.0,179.99,-251.99,599.97,419.98,1.0,179.99],[2.0,3.0,1.0,0.0,0.0,15.0,4883.68,1158.35,4883.68,0.0,0.0,0.0],[2.0,3.0,1.0,0.0,2.0,3.0,1176.29,91.41,1383.87,207.58,1.0,273.67],[2.0,3.0,1.0,0.0,3.0,38.0,23205.39,777.0,29006.74,5801.35,10.0,4605.86],[2.0,3.0,1.0,0.0,6.0,3.0,1218.86,-708.54,2437.73,1218.86,3.0,1218.86],[2.0,3.0,1.0,0.0,7.0,1.0,90.88,-190.85,302.94,212.06,1.0,90.88],[2.0,3.0,1.0,1.0,0.0,79.0,13653.09,2213.99,13653.09,0.0,0.0,0.0],[2.0,3.0,1.0,1.0,3.0,56.0,3918.35,937.03,4897.94,979.59,2.0,355.62],[2.0,3.0,1.0,1.0,7.0,7.0,62.5,-45.72,208.32,145.82,7.0,62.5],[2.0,3.0,1.0,2.0,0.0,20.0,4298.54,1241.84,4298.54,0.0,0.0,0.0],[2.0,3.0,1.0,2.0,3.0,28.0,13624.51,1518.84,17030.64,3406.13,5.0,350.66],[2.0,3.0,1.0,2.0,7.0,1.0,269.97,-386.96,899.9,629.93,1.0,269.97],[2.0,3.0,2.0,0.0,0.0,11.0,1643.63,402.68,1643.63,0.0,0.0,0.0],[2.0,3.0,2.0,0.0,2.0,2.0,719.83,56.54,846.86,127.03,0.0,0.0],[2.0,3.0,2.0,0.0,3.0,13.0,6026.67,412.34,7533.34,1506.67,2.0,755.78],[2.0,3.0,2.0,0.0,6.0,3.0,2214.28,-1383.36,4428.55,2214.28,3.0,2214.28],[2.0,3.0,2.0,1.0,0.0,50.0,4199.15,1310.01,4199.15,0.0,0.0,0.0],[2.0,3.0,2.0,1.0,3.0,31.0,6543.54,1886.67,8179.43,1635.89,2.0,696.43],[2.0,3.0,2.0,1.0,7.0,7.0,192.2,-145.72,640.68,448.48,7.0,192.2],[2.0,3.0,2.0,2.0,0.0,8.0,2544.23,788.57,2544.23,0.0,0.0,0.0],[2.0,3.0,2.0,2.0,3.0,21.0,13156.17,1307.52,16445.21,3289.04,2.0,141.46],[2.0,3.0,2.0,2.0,7.0,1.0,703.71,-938.28,2345.7,1641.99,1.0,703.71],[3.0,0.0,0.0,0.0,0.0,20.0,8243.79,1916.96,8243.79,0.0,0.0,0.0],[3.0,0.0,0.0,0.0,4.0,26.0,11622.28,-1302.17,16603.25,4980.98,26.0,11622.28],[3.0,0.0,0.0,0.0,5.0,6.0,2372.98,-250.4,3489.68,1116.7,6.0,2372.98],[3.0,0.0,0.0,0.0,6.0,4.0,1145.35,-812.73,2290.7,1145.35,4.0,1145.35],[3.0,0.0,0.0,0.0,7.0,22.0,1041.36,-931.52,2603.41,1562.05,22.0,1041.36],[3.0,0.0,0.0,1.0,0.0,97.0,18289.49,6940.19,18289.49,0.0,0.0,0.0],[3.0,0.0,0.0,1.0,3.0,103.0,6702.88,607.82,8378.6,1675.72,14.0,1989.96],[3.0,0.0,0.0,1.0,8.0,55.0,3443.58,-6163.07,17217.88,13774.3,55.0,3443.58],[3.0,0.0,0.0,2.0,0.0,24.0,7316.44,2118.64,7316.44,0.0,0.0,0.0],[3.0,0.0,0.0,2.0,3.0,41.0,8167.53,857.02,10209.41,2041.88,10.0,615.78],[3.0,0.0,1.0,0.0,0.0,20.0,8815.6,2326.12,8815.6,0.0,0.0,0.0],[3.0,0.0,1.0,0.0,4.0,7.0,2410.06,-301.33,3442.94,1032.88,7.0,2410.06],[3.0,0.0,1.0,0.0,5.0,4.0,1255.06,-224.8,1845.68,590.62,4.0,1255.06],[3.0,0.0,1.0,0.0,6.0,2.0,719.1,-473.27,1438.19,719.1,2.0,719.1],[3.0,0.0,1.0,0.0,7.0,8.0,740.31,-808.52,1850.77,1110.46,8.0,740.31],[3.0,0.0,1.0,1.0,0.0,46.0,14163.68,3252.86,14163.68,0.0,0.0,0.0],[3.0,0.0,1.0,1.0,1.0,1.0,87.44,18.46,97.16,9.72,0.0,0.0],[3.0,0.0,1.0,1.0,3.0,62.0,3927.6,457.95,4909.5,981.9,5.0,1338.63],[3.0,0.0,1.0,1.0,8.0,36.0,3392.81,-5524.67,16964.07,13571.26,36.0,3392.81],[3.0,0.0,1.0,2.0,0.0,12.0,2474.86,786.58,2474.86,0.0,0.0,0.0],[3.0,0.0,1.0,2.0,1.0,1.0,3059.98,680.0,3399.98,340.0,0.0,0.0],[3.0,0.0,1.0,2.0,3.0,17.0,5216.42,916.17,6520.52,1304.1,2.0,135.96],[3.0,0.0,1.0,2.0,5.0,2.0,2037.11,-214.24,3395.19,1358.08,1.0,1439.98],[3.0,0.0,2.0,0.0,0.0,10.0,2687.12,623.09,2687.12,0.0,0.0,0.0],[3.0,0.0,2.0,0.0,4.0,8.0,2532.36,-455.62,3617.65,1085.3,8.0,2532.36],[3.0,0.0,2.0,0.0,5.0,1.0,89.07,-17.03,130.98,41.91,1.0,89.07],[3.0,0.0,2.0,0.0,6.0,2.0,589.88,-341.23,1179.77,589.88,2.0,589.88],[3.0,0.0,2.0,0.0,7.0,9.0,257.96,-228.84,644.9,386.94,9.0,257.96],[3.0,0.0,2.0,1.0,0.0,44.0,5213.46,1686.28,5213.46,0.0,0.0,0.0],[3.0,0.0,2.0,1.0,3.0,41.0,2556.24,366.38,3195.3,639.06,6.0,605.78],[3.0,0.0,2.0,1.0,8.0,16.0,993.36,-1556.72,4966.8,3973.44,16.0,993.36],[3.0,0.0,2.0,2.0,0.0,13.0,8621.92,2633.64,8621.92,0.0,0.0,0.0],[3.0,0.0,2.0,2.0,1.0,1.0,350.97,152.09,389.97,39.0,0.0,0.0],[3.0,0.0,2.0,2.0,3.0,15.0,6013.58,762.89,7516.98,1503.4,3.0,517.48],[3.0,0.0,2.0,2.0,4.0,1.0,209.99,9.0,299.98,89.99,0.0,0.0],[3.0,0.0,2.0,2.0,5.0,1.0,336.51,44.87,560.85,224.34,0.0,0.0],[3.0,1.0,0.0,0.0,0.0,27.0,5900.13,1094.43,5900.13,0.0,0.0,0.0],[3.0,1.0,0.0,0.0,1.0,13.0,9639.32,1638.54,10710.36,1071.04,0.0,0.0],[3.0,1.0,0.0,0.0,3.0,32.0,4330.61,291.36,5413.26,1082.65,7.0,1691.92],[3.0,1.0,0.0,0.0,4.0,13.0,8603.6,-1008.87,12290.86,3687.26,13.0,8603.6],[3.0,1.0,0.0,0.0,5.0,5.0,1973.13,-642.04,3288.55,1315.42,5.0,1973.13],[3.0,1.0,0.0,0.0,6.0,2.0,218.19,-134.42,436.38,218.19,2.0,218.19],[3.0,1.0,0.0,1.0,0.0,149.0,13022.61,4427.78,13022.61,0.0,0.0,0.0],[3.0,1.0,0.0,1.0,3.0,97.0,16252.5,1443.87,20315.62,4063.12,7.0,5772.99],[3.0,1.0,0.0,1.0,7.0,34.0,1845.83,-1414.61,6152.78,4306.95,34.0,1845.83],[3.0,1.0,0.0,2.0,0.0,49.0,23290.54,8476.26,23290.54,0.0,0.0,0.0],[3.0,1.0,0.0,2.0,3.0,19.0,2543.98,363.57,3179.98,636.0,5.0,596.58],[3.0,1.0,0.0,2.0,5.0,21.0,7579.18,-728.28,12631.96,5052.78,15.0,5206.54],[3.0,1.0,0.0,2.0,7.0,2.0,253.76,-186.86,845.85,592.09,2.0,253.76],[3.0,1.0,1.0,0.0,0.0,35.0,7409.26,1783.25,7409.26,0.0,0.0,0.0],[3.0,1.0,1.0,0.0,1.0,7.0,3523.1,517.68,3914.56,391.46,0.0,0.0],[3.0,1.0,1.0,0.0,3.0,11.0,601.0,66.94,751.25,150.25,0.0,0.0],[3.0,1.0,1.0,0.0,4.0,8.0,3825.12,-567.69,5464.46,1639.34,8.0,3825.12],[3.0,1.0,1.0,0.0,5.0,5.0,2345.48,-466.52,3909.13,1563.65,5.0,2345.48],[3.0,1.0,1.0,0.0,6.0,1.0,115.96,-64.94,231.92,115.96,1.0,115.96],[3.0,1.0,1.0,1.0,0.0,78.0,13846.24,3870.43,13846.24,0.0,0.0,0.0],[3.0,1.0,1.0,1.0,3.0,66.0,7789.32,791.91,9736.65,1947.33,6.0,2659.85],[3.0,1.0,1.0,1.0,7.0,18.0,298.14,-220.86,993.79,695.65,18.0,298.14],[3.0,1.0,1.0,2.0,0.0,34.0,14256.95,4001.74,14256.95,0.0,0.0,0.0],[3.0,1.0,1.0,2.0,3.0,13.0,4484.52,720.51,5605.65,1121.13,3.0,466.65],[3.0,1.0,1.0,2.0,5.0,12.0,5608.85,-912.79,9348.09,3739.24,11.0,4708.87],[3.0,1.0,1.0,2.0,7.0,1.0,653.0,-935.96,2176.65,1523.65,1.0,653.0],[3.0,1.0,2.0,0.0,0.0,13.0,2451.26,706.3,2451.26,0.0,0.0,0.0],[3.0,1.0,2.0,0.0,1.0,5.0,2296.52,293.83,2551.69,255.17,2.0,771.17],[3.0,1.0,2.0,0.0,3.0,8.0,1887.74,92.11,2359.68,471.94,1.0,516.49],[3.0,1.0,2.0,0.0,4.0,5.0,2103.5,-240.92,3005.0,901.5,5.0,2103.5],[3.0,1.0,2.0,0.0,5.0,7.0,3629.93,-1178.93,6049.88,2419.95,7.0,3629.93],[3.0,1.0,2.0,1.0,0.0,58.0,9115.62,2631.35,9115.62,0.0,0.0,0.0],[3.0,1.0,2.0,1.0,3.0,28.0,2727.26,358.19,3409.08,681.82,1.0,848.54],[3.0,1.0,2.0,1.0,7.0,10.0,193.09,-138.55,643.64,450.55,10.0,193.09],[3.0,1.0,2.0,2.0,0.0,24.0,14143.35,5121.32,14143.35,0.0,0.0,0.0],[3.0,1.0,2.0,2.0,3.0,2.0,11439.94,3985.98,14299.93,2859.99,0.0,0.0],[3.0,1.0,2.0,2.0,5.0,9.0,2884.36,-604.58,4807.27,1922.91,8.0,2821.4],[3.0,2.0,0.0,0.0,0.0,26.0,10857.0,2551.17,10857.0,0.0,0.0,0.0],[3.0,2.0,0.0,0.0,3.0,33.0,8716.93,155.83,10896.16,2179.23,7.0,2032.52],[3.0,2.0,0.0,0.0,5.0,2.0,2716.64,-902.6,4527.73,1811.09,2.0,2716.64],[3.0,2.0,0.0,0.0,6.0,1.0,933.26,-458.15,1696.84,763.58,1.0,933.26],[3.0,2.0,0.0,1.0,0.0,70.0,10485.47,3022.37,10485.47,0.0,0.0,0.0],[3.0,2.0,0.0,1.0,3.0,85.0,6160.98,835.85,7701.23,1540.25,10.0,1930.82],[3.0,2.0,0.0,1.0,7.0,15.0,1800.27,-1379.52,6000.91,4200.64,15.0,1800.27],[3.0,2.0,0.0,2.0,0.0,20.0,8250.02,2568.99,8250.02,0.0,0.0,0.0],[3.0,2.0,0.0,2.0,3.0,25.0,10270.15,1200.7,12837.69,2567.54,5.0,573.89],[3.0,2.0,0.0,2.0,6.0,2.0,769.0,-279.78,1538.0,769.0,2.0,769.0],[3.0,2.0,1.0,0.0,0.0,9.0,3083.23,746.26,3083.23,0.0,0.0,0.0],[3.0,2.0,1.0,0.0,3.0,13.0,1446.14,-51.19,1807.68,361.54,5.0,1069.31],[3.0,2.0,1.0,0.0,5.0,3.0,2519.98,-1189.15,4199.97,1679.99,3.0,2519.98],[3.0,2.0,1.0,0.0,6.0,1.0,721.88,-420.0,1312.5,590.62,1.0,721.88],[3.0,2.0,1.0,1.0,0.0,40.0,8681.29,2868.0,8681.29,0.0,0.0,0.0],[3.0,2.0,1.0,1.0,3.0,34.0,5354.01,575.77,6692.51,1338.5,2.0,194.93],[3.0,2.0,1.0,1.0,7.0,12.0,223.02,-163.43,743.39,520.37,12.0,223.02],[3.0,2.0,1.0,2.0,0.0,14.0,7238.91,2613.88,7238.91,0.0,0.0,0.0],[3.0,2.0,1.0,2.0,3.0,11.0,4434.86,406.92,5543.57,1108.71,2.0,97.54],[3.0,2.0,1.0,2.0,6.0,2.0,8695.68,-3867.82,17391.36,8695.68,2.0,8695.68],[3.0,2.0,2.0,0.0,0.0,7.0,1853.14,408.02,1853.14,0.0,0.0,0.0],[3.0,2.0,2.0,0.0,3.0,10.0,2133.87,-35.4,2667.34,533.47,4.0,1104.93],[3.0,2.0,2.0,0.0,5.0,2.0,2468.88,-1038.9,4114.8,1645.92,2.0,2468.88],[3.0,2.0,2.0,0.0,6.0,2.0,854.47,-350.29,1553.59,699.12,2.0,854.47],[3.0,2.0,2.0,1.0,0.0,28.0,3759.92,1391.68,3759.92,0.0,0.0,0.0],[3.0,2.0,2.0,1.0,3.0,18.0,1443.61,106.33,1804.51,360.9,2.0,211.97],[3.0,2.0,2.0,1.0,7.0,10.0,1863.94,-1476.63,6213.14,4349.2,10.0,1863.94],[3.0,2.0,2.0,2.0,0.0,12.0,2681.51,827.23,2681.51,0.0,0.0,0.0],[3.0,2.0,2.0,2.0,3.0,11.0,2487.79,182.78,3109.74,621.95,1.0,617.98],[3.0,3.0,0.0,0.0,0.0,61.0,11018.23,2117.81,11018.23,0.0,0.0,0.0],[3.0,3.0,0.0,0.0,2.0,9.0,4165.23,91.86,4900.27,735.04,4.0,889.83],[3.0,3.0,0.0,0.0,3.0,44.0,15144.98,203.34,18931.23,3786.25,18.0,5050.01],[3.0,3.0,0.0,0.0,6.0,2.0,984.15,-583.98,1968.3,984.15,2.0,984.15],[3.0,3.0,0.0,0.0,7.0,4.0,590.36,-962.12,1967.87,1377.51,4.0,590.36],[3.0,3.0,0.0,1.0,0.0,206.0,20722.29,5731.33,20722.29,0.0,0.0,0.0],[3.0,3.0,0.0,1.0,3.0,97.0,14548.42,3713.89,18185.53,3637.11,7.0,2023.79],[3.0,3.0,0.0,1.0,7.0,13.0,245.93,-172.45,819.76,573.83,13.0,245.93],[3.0,3.0,0.0,2.0,0.0,36.0,23091.49,9580.36,23091.49,0.0,0.0,0.0],[3.0,3.0,0.0,2.0,3.0,56.0,16634.83,1931.86,20793.54,4158.71,3.0,866.21],[3.0,3.0,1.0,0.0,0.0,24.0,3942.72,682.99,3942.72,0.0,0.0,0.0],[3.0,3.0,1.0,0.0,2.0,3.0,2233.49,302.46,2627.64,394.15,0.0,0.0],[3.0,3.0,1.0,0.0,3.0,33.0,14287.45,198.55,17859.31,3571.86,11.0,4930.52],[3.0,3.0,1.0,0.0,6.0,1.0,177.22,-120.51,354.45,177.22,1.0,177.22],[3.0,3.0,1.0,0.0,7.0,3.0,524.92,-848.73,1749.73,1224.81,3.0,524.92],[3.0,3.0,1.0,1.0,0.0,130.0,21036.83,5356.05,21036.83,0.0,0.0,0.0],[3.0,3.0,1.0,1.0,3.0,62.0,13623.97,4748.26,17029.96,3405.99,0.0,0.0],[3.0,3.0,1.0,1.0,7.0,6.0,181.44,-123.15,604.79,423.35,6.0,181.44],[3.0,3.0,1.0,2.0,0.0,28.0,11389.92,3037.16,11389.92,0.0,0.0,0.0],[3.0,3.0,1.0,2.0,3.0,43.0,18897.9,2619.02,23622.38,4724.48,6.0,600.7],[3.0,3.0,1.0,2.0,7.0,1.0,95.99,-64.0,319.98,223.99,1.0,95.99],[3.0,3.0,2.0,0.0,0.0,22.0,6076.25,1303.93,6076.25,0.0,0.0,0.0],[3.0,3.0,2.0,0.0,2.0,4.0,2364.07,143.21,2781.26,417.19,1.0,514.16],[3.0,3.0,2.0,0.0,3.0,20.0,9809.72,360.85,12262.15,2452.43,8.0,1964.32],[3.0,3.0,2.0,0.0,6.0,1.0,386.91,-185.72,773.82,386.91,1.0,386.91],[3.0,3.0,2.0,1.0,0.0,87.0,8752.38,2184.35,8752.38,0.0,0.0,0.0],[3.0,3.0,2.0,1.0,3.0,43.0,3214.41,786.85,4018.01,803.6,4.0,425.25],[3.0,3.0,2.0,1.0,7.0,7.0,137.84,-103.93,459.47,321.63,7.0,137.84],[3.0,3.0,2.0,2.0,0.0,17.0,6635.23,2768.9,6635.23,0.0,0.0,0.0],[3.0,3.0,2.0,2.0,3.0,30.0,16063.81,2990.47,20079.76,4015.95,4.0,168.84],[3.0,3.0,2.0,2.0,7.0,2.0,3149.97,-3879.97,10499.9,7349.93,2.0,3149.97]],"B":[[0.0,0.0,0.0,0.0,18.0,3137.73,622.15,609.31],[0.0,0.0,0.0,1.0,14.0,1748.67,-789.0,1956.12],[0.0,0.0,0.0,2.0,19.0,490.62,111.91,59.18],[0.0,0.0,0.0,3.0,50.0,14713.5,-914.22,14834.18],[0.0,0.0,0.0,4.0,3.0,1110.61,-120.66,484.09],[0.0,0.0,0.0,5.0,17.0,11023.31,577.98,2975.48],[0.0,0.0,0.0,6.0,1.0,1999.96,624.99,499.99],[0.0,0.0,0.0,7.0,6.0,837.26,285.58,207.78],[0.0,0.0,0.0,8.0,7.0,65.72,-0.0,14.95],[0.0,0.0,0.0,9.0,26.0,2153.27,-144.6,919.24],[0.0,0.0,0.0,10.0,5.0,143.09,67.31,5.22],[0.0,0.0,0.0,11.0,3.0,9577.6,-1657.48,6385.07],[0.0,0.0,0.0,12.0,34.0,1535.76,553.03,334.41],[0.0,0.0,0.0,13.0,16.0,5550.28,735.68,1161.88],[0.0,0.0,0.0,14.0,36.0,7349.33,-2.69,826.24],[0.0,0.0,0.0,15.0,2.0,43.63,3.93,10.91],[0.0,0.0,0.0,16.0,11.0,5836.13,-1372.73,2992.97],[0.0,0.0,1.0,0.0,11.0,792.0,169.62,146.81],[0.0,0.0,1.0,1.0,7.0,239.75,-253.47,455.3],[0.0,0.0,1.0,2.0,5.0,210.58,61.78,4.78],[0.0,0.0,1.0,3.0,15.0,471.45,-415.92,1227.39],[0.0,0.0,1.0,4.0,2.0,209.95,26.75,32.0],[0.0,0.0,1.0,5.0,6.0,3891.2,-231.85,1499.26],[0.0,0.0,1.0,6.0,1.0,719.98,135.0,179.99],[0.0,0.0,1.0,7.0,6.0,290.48,109.3,56.61],[0.0,0.0,1.0,8.0,5.0,52.6,15.5,10.0],[0.0,0.0,1.0,9.0,9.0,254.37,-111.01,351.07],[0.0,0.0,1.0,10.0,5.0,716.75,346.63,7.15],[0.0,0.0,1.0,11.0,3.0,6139.65,-883.26,4093.1],[0.0,0.0,1.0,12.0,19.0,578.7,247.98,49.04],[0.0,0.0,1.0,13.0,6.0,2548.2,277.51,572.55],[0.0,0.0,1.0,14.0,11.0,1428.73,25.58,243.81],[0.0,0.0,1.0,15.0,2.0,38.9,-0.62,9.72],[0.0,0.0,1.0,16.0,2.0,1318.65,-140.43,565.14],[0.0,0.0,2.0,0.0,5.0,509.24,99.49,107.66],[0.0,0.0,2.0,1.0,2.0,1670.78,533.3,18.62],[0.0,0.0,2.0,2.0,4.0,120.76,14.16,30.19],[0.0,0.0,2.0,3.0,14.0,685.99,-45.8,697.86],[0.0,0.0,2.0,4.0,2.0,513.47,-39.74,141.43],[0.0,0.0,2.0,5.0,9.0,5839.54,353.13,1369.64],[0.0,0.0,2.0,6.0,1.0,549.99,275.0,0.0],[0.0,0.0,2.0,7.0,5.0,470.95,175.97,84.75],[0.0,0.0,2.0,8.0,1.0,3.49,0.57,0.87],[0.0,0.0,2.0,9.0,5.0,128.46,9.1,51.03],[0.0,0.0,2.0,10.0,6.0,188.62,67.61,41.77],[0.0,0.0,2.0,11.0,1.0,574.91,156.05,246.39],[0.0,0.0,2.0,12.0,11.0,232.31,95.2,26.85],[0.0,0.0,2.0,13.0,7.0,1827.28,467.74,313.33],[0.0,0.0,2.0,14.0,7.0,2315.33,321.54,280.23],[0.0,0.0,2.0,15.0,1.0,357.93,7.16,0.0],[0.0,0.0,2.0,16.0,2.0,630.69,88.83,86.06],[0.0,1.0,0.0,0.0,19.0,2785.56,628.12,282.93],[0.0,1.0,0.0,1.0,16.0,2123.23,561.12,112.21],[0.0,1.0,0.0,2.0,28.0,608.28,155.13,60.56],[0.0,1.0,0.0,3.0,51.0,3894.95,936.71,1713.68],[0.0,1.0,0.0,4.0,6.0,6759.8,-395.49,1861.69],[0.0,1.0,0.0,5.0,16.0,14298.38,1494.9,2458.09],[0.0,1.0,0.0,6.0,4.0,4099.93,650.99,2499.95],[0.0,1.0,0.0,7.0,10.0,589.87,221.85,101.67],[0.0,1.0,0.0,8.0,3.0,54.32,17.55,12.64],[0.0,1.0,0.0,9.0,33.0,2305.56,350.5,296.96],[0.0,1.0,0.0,10.0,10.0,325.46,149.12,8.78],[0.0,1.0,0.0,11.0,5.0,10174.88,3399.09,720.96],[0.0,1.0,0.0,12.0,32.0,1638.75,706.75,140.1],[0.0,1.0,0.0,13.0,28.0,16652.0,3043.23,2571.39],[0.0,1.0,0.0,14.0,16.0,6443.85,364.27,539.58],[0.0,1.0,0.0,15.0,6.0,433.13,-27.75,73.88],[0.0,1.0,0.0,16.0,8.0,3315.61,-835.17,1905.64],[0.0,1.0,1.0,0.0,6.0,836.53,285.47,67.75],[0.0,1.0,1.0,1.0,12.0,3353.91,769.69,245.18],[0.0,1.0,1.0,2.0,11.0,279.8,68.83,32.31],[0.0,1.0,1.0,3.0,27.0,1420.89,-178.14,1577.56],[0.0,1.0,1.0,4.0,5.0,3485.74,-70.8,1279.74],[0.0,1.0,1.0,5.0,9.0,5396.14,882.95,572.86],[0.0,1.0,1.0,7.0,5.0,746.39,297.32,115.95],[0.0,1.0,1.0,8.0,2.0,36.91,12.91,7.75],[0.0,1.0,1.0,9.0,13.0,1025.22,294.29,65.04],[0.0,1.0,1.0,10.0,9.0,162.04,65.28,19.37],[0.0,1.0,1.0,11.0,1.0,399.54,-559.36,932.26],[0.0,1.0,1.0,12.0,18.0,1546.77,703.12,69.22],[0.0,1.0,1.0,13.0,12.0,3744.78,299.65,1081.95],[0.0,1.0,1.0,14.0,15.0,8385.52,822.51,618.85],[0.0,1.0,1.0,15.0,1.0,17.14,4.46,0.0],[0.0,1.0,1.0,16.0,10.0,6802.75,-2523.3,4518.36],[0.0,1.0,2.0,0.0,6.0,2431.68,974.44,29.98],[0.0,1.0,2.0,1.0,3.0,302.06,81.15,4.18],[0.0,1.0,2.0,2.0,6.0,402.12,108.95,8.68],[0.0,1.0,2.0,3.0,10.0,1030.78,402.4,174.2],[0.0,1.0,2.0,4.0,2.0,617.91,40.71,68.99],[0.0,1.0,2.0,5.0,7.0,2313.75,341.54,368.41],[0.0,1.0,2.0,7.0,1.0,11.36,5.34,0.0],[0.0,1.0,2.0,8.0,1.0,5.68,1.92,1.42],[0.0,1.0,2.0,9.0,6.0,426.54,99.59,76.7],[0.0,1.0,2.0,10.0,2.0,28.64,10.62,5.2],[0.0,1.0,2.0,11.0,2.0,4061.97,2026.09,0.0],[0.0,1.0,2.0,12.0,14.0,731.62,338.98,23.79],[0.0,1.0,2.0,13.0,3.0,291.87,86.22,0.0],[0.0,1.0,2.0,14.0,3.0,1377.89,125.23,0.0],[0.0,1.0,2.0,15.0,2.0,17.6,0.0,2.58],[0.0,1.0,2.0,16.0,2.0,485.35,-179.37,323.57],[0.0,2.0,0.0,0.0,13.0,2610.8,654.3,259.79],[0.0,2.0,0.0,1.0,6.0,765.92,102.9,152.76],[0.0,2.0,0.0,2.0,13.0,339.0,83.19,16.16],[0.0,2.0,0.0,3.0,18.0,2743.14,522.63,1554.35],[0.0,2.0,0.0,4.0,2.0,794.28,164.71,38.86],[0.0,2.0,0.0,5.0,11.0,5961.31,729.78,564.46],[0.0,2.0,0.0,6.0,1.0,479.98,90.0,120.0],[0.0,2.0,0.0,7.0,4.0,125.56,45.92,25.56],[0.0,2.0,0.0,8.0,4.0,78.08,32.92,5.31],[0.0,2.0,0.0,9.0,16.0,1413.06,113.88,260.43],[0.0,2.0,0.0,10.0,5.0,251.23,110.52,18.43],[0.0,2.0,0.0,11.0,3.0,4134.94,-1426.7,3924.98],[0.0,2.0,0.0,12.0,24.0,1279.32,488.02,230.49],[0.0,2.0,0.0,13.0,12.0,4690.51,1185.03,144.83],[0.0,2.0,0.0,14.0,12.0,2688.86,360.12,195.86],[0.0,2.0,0.0,15.0,4.0,52.21,9.73,2.68],[0.0,2.0,0.0,16.0,5.0,3902.59,-67.28,772.44],[0.0,2.0,1.0,0.0,10.0,1925.9,721.88,46.36],[0.0,2.0,1.0,1.0,6.0,1142.55,371.04,72.0],[0.0,2.0,1.0,2.0,13.0,159.48,43.42,16.1],[0.0,2.0,1.0,3.0,20.0,4450.6,1928.39,336.2],[0.0,2.0,1.0,5.0,6.0,3397.23,543.54,436.44],[0.0,2.0,1.0,7.0,4.0,89.89,44.1,0.0],[0.0,2.0,1.0,8.0,4.0,30.55,9.36,4.47],[0.0,2.0,1.0,9.0,12.0,1407.93,201.76,153.19],[0.0,2.0,1.0,10.0,9.0,146.86,58.1,19.29],[0.0,2.0,1.0,12.0,24.0,1628.06,740.6,74.98],[0.0,2.0,1.0,13.0,14.0,9740.38,2277.51,514.28],[0.0,2.0,1.0,14.0,13.0,3036.97,91.19,60.18],[0.0,2.0,1.0,15.0,2.0,4189.55,89.91,0.0],[0.0,2.0,1.0,16.0,4.0,3338.77,581.36,219.06],[0.0,2.0,2.0,0.0,5.0,1058.6,309.56,239.71],[0.0,2.0,2.0,1.0,1.0,211.25,15.84,52.81],[0.0,2.0,2.0,2.0,4.0,67.65,7.14,15.54],[0.0,2.0,2.0,3.0,6.0,1113.7,-30.92,972.05],[0.0,2.0,2.0,5.0,2.0,3713.74,1031.39,0.0],[0.0,2.0,2.0,7.0,1.0,36.4,17.47,0.0],[0.0,2.0,2.0,8.0,3.0,57.16,8.63,6.51],[0.0,2.0,2.0,9.0,5.0,339.51,107.53,38.28],[0.0,2.0,2.0,10.0,1.0,2.95,1.0,0.74],[0.0,2.0,2.0,11.0,2.0,23459.78,-1827.5,23459.78],[0.0,2.0,2.0,12.0,10.0,277.2,110.2,44.06],[0.0,2.0,2.0,13.0,8.0,2818.07,623.17,117.98],[0.0,2.0,2.0,14.0,4.0,989.17,10.92,15.39],[0.0,2.0,2.0,15.0,1.0,5.55,-1.04,1.39],[0.0,2.0,2.0,16.0,2.0,2699.58,593.91,0.0],[0.0,3.0,0.0,0.0,33.0,5764.52,1152.24,644.43],[0.0,3.0,0.0,1.0,11.0,2033.75,579.4,0.65],[0.0,3.0,0.0,2.0,38.0,1391.49,348.04,88.57],[0.0,3.0,0.0,3.0,40.0,8801.64,1775.59,4382.79],[0.0,3.0,0.0,4.0,6.0,1489.44,-302.87,654.25],[0.0,3.0,0.0,5.0,27.0,12922.44,686.31,3230.61],[0.0,3.0,0.0,6.0,2.0,2999.95,1136.98,299.99],[0.0,3.0,0.0,7.0,9.0,618.38,274.93,38.48],[0.0,3.0,0.0,8.0,8.0,116.76,50.35,1.12],[0.0,3.0,0.0,9.0,31.0,1906.32,501.1,45.46],[0.0,3.0,0.0,10.0,10.0,301.1,139.35,9.85],[0.0,3.0,0.0,11.0,4.0,1452.18,438.29,425.39],[0.0,3.0,0.0,12.0,46.0,2661.14,1138.29,222.1],[0.0,3.0,0.0,13.0,35.0,19498.27,1812.64,4874.57],[0.0,3.0,0.0,14.0,35.0,8744.17,770.83,474.46],[0.0,3.0,0.0,15.0,10.0,8395.54,361.17,17.17],[0.0,3.0,0.0,16.0,13.0,10868.87,255.44,2743.77],[0.0,3.0,1.0,0.0,16.0,1687.12,482.63,1.79],[0.0,3.0,1.0,1.0,8.0,862.78,235.45,24.32],[0.0,3.0,1.0,2.0,16.0,1780.48,342.87,298.5],[0.0,3.0,1.0,3.0,29.0,3469.98,514.79,2192.07],[0.0,3.0,1.0,4.0,6.0,3325.98,278.52,345.55],[0.0,3.0,1.0,5.0,13.0,5310.41,269.66,1327.6],[0.0,3.0,1.0,7.0,2.0,23.93,10.21,3.19],[0.0,3.0,1.0,8.0,6.0,75.64,29.18,8.65],[0.0,3.0,1.0,9.0,16.0,1494.98,286.96,151.68],[0.0,3.0,1.0,10.0,6.0,416.24,194.35,0.0],[0.0,3.0,1.0,11.0,1.0,767.95,287.98,191.99],[0.0,3.0,1.0,12.0,27.0,1864.26,849.26,70.08],[0.0,3.0,1.0,13.0,19.0,5094.31,639.26,1273.58],[0.0,3.0,1.0,14.0,17.0,4773.11,724.68,45.03],[0.0,3.0,1.0,15.0,7.0,820.01,38.47,3.84],[0.0,3.0,1.0,16.0,10.0,4440.96,72.91,819.74],[0.0,3.0,2.0,0.0,6.0,1474.6,302.82,0.0],[0.0,3.0,2.0,1.0,7.0,858.97,252.08,0.0],[0.0,3.0,2.0,2.0,7.0,207.72,61.38,3.64],[0.0,3.0,2.0,3.0,10.0,691.64,244.2,172.91],[0.0,3.0,2.0,4.0,3.0,1729.5,72.7,305.21],[0.0,3.0,2.0,5.0,6.0,3174.13,275.71,793.53],[0.0,3.0,2.0,7.0,1.0,15.28,7.49,0.0],[0.0,3.0,2.0,8.0,6.0,84.4,-0.32,12.45],[0.0,3.0,2.0,9.0,12.0,971.02,263.79,11.72],[0.0,3.0,2.0,10.0,8.0,158.4,76.11,0.0],[0.0,3.0,2.0,11.0,1.0,1279.97,415.99,319.99],[0.0,3.0,2.0,12.0,14.0,861.05,399.59,23.26],[0.0,3.0,2.0,13.0,11.0,4934.86,360.37,1233.71],[0.0,3.0,2.0,14.0,8.0,2796.1,552.09,0.0],[0.0,3.0,2.0,15.0,2.0,22.88,4.65,0.0],[0.0,3.0,2.0,16.0,2.0,2448.41,401.79,24.9],[1.0,0.0,0.0,0.0,21.0,4051.09,791.04,575.3],[1.0,0.0,0.0,1.0,15.0,2227.0,-2200.54,3942.26],[1.0,0.0,0.0,2.0,14.0,391.75,68.05,69.5],[1.0,0.0,0.0,3.0,41.0,1229.06,-467.11,1972.88],[1.0,0.0,0.0,4.0,6.0,4136.77,-608.63,1635.69],[1.0,0.0,0.0,5.0,23.0,13440.15,1255.33,2442.58],[1.0,0.0,0.0,6.0,3.0,2519.92,857.97,479.99],[1.0,0.0,0.0,7.0,6.0,362.73,159.57,12.2],[1.0,0.0,0.0,8.0,6.0,53.14,15.87,10.37],[1.0,0.0,0.0,9.0,22.0,1618.04,-299.73,886.33],[1.0,0.0,0.0,10.0,6.0,148.41,66.05,6.11],[1.0,0.0,0.0,11.0,3.0,771.35,-23.67,458.3],[1.0,0.0,0.0,12.0,26.0,1569.69,625.11,228.98],[1.0,0.0,0.0,13.0,26.0,8957.15,1798.23,1313.0],[1.0,0.0,0.0,14.0,20.0,4996.56,-173.61,1022.08],[1.0,0.0,0.0,15.0,3.0,78.49,4.52,19.62],[1.0,0.0,0.0,16.0,6.0,3110.96,-106.13,894.25],[1.0,0.0,1.0,0.0,9.0,1471.1,266.81,167.33],[1.0,0.0,1.0,1.0,5.0,781.69,41.72,371.6],[1.0,0.0,1.0,2.0,11.0,482.42,112.27,35.72],[1.0,0.0,1.0,3.0,18.0,340.08,-141.87,584.08],[1.0,0.0,1.0,4.0,5.0,2198.63,-174.13,867.45],[1.0,0.0,1.0,5.0,5.0,1837.4,219.15,101.39],[1.0,0.0,1.0,6.0,4.0,8739.87,3576.95,809.99],[1.0,0.0,1.0,7.0,3.0,288.46,99.35,57.62],[1.0,0.0,1.0,8.0,2.0,19.47,3.63,3.61],[1.0,0.0,1.0,9.0,12.0,313.89,-220.79,447.08],[1.0,0.0,1.0,10.0,7.0,110.95,39.02,27.08],[1.0,0.0,1.0,11.0,1.0,479.99,56.0,319.99],[1.0,0.0,1.0,12.0,24.0,1309.49,509.73,217.73],[1.0,0.0,1.0,13.0,17.0,6451.06,891.01,1340.76],[1.0,0.0,1.0,14.0,12.0,2273.25,449.82,148.79],[1.0,0.0,1.0,15.0,4.0,106.72,10.81,13.53],[1.0,0.0,1.0,16.0,4.0,1875.25,251.7,193.22],[1.0,0.0,2.0,0.0,8.0,2273.03,473.19,289.64],[1.0,0.0,2.0,1.0,6.0,1965.82,-35.94,967.02],[1.0,0.0,2.0,2.0,8.0,258.0,67.75,24.17],[1.0,0.0,2.0,3.0,16.0,4321.45,1979.09,328.31],[1.0,0.0,2.0,4.0,4.0,1962.32,-102.43,584.88],[1.0,0.0,2.0,5.0,6.0,2630.96,202.47,457.28],[1.0,0.0,2.0,6.0,2.0,1549.97,724.99,0.0],[1.0,0.0,2.0,7.0,3.0,219.67,88.03,29.45],[1.0,0.0,2.0,8.0,1.0,16.0,5.6,4.0],[1.0,0.0,2.0,9.0,5.0,596.63,-237.17,459.75],[1.0,0.0,2.0,10.0,2.0,45.15,21.67,0.0],[1.0,0.0,2.0,11.0,1.0,600.53,137.26,257.37],[1.0,0.0,2.0,12.0,6.0,665.06,263.9,111.81],[1.0,0.0,2.0,13.0,8.0,3955.71,618.0,607.98],[1.0,0.0,2.0,14.0,4.0,1061.66,161.21,60.4],[1.0,0.0,2.0,15.0,2.0,139.24,6.35,17.28],[1.0,0.0,2.0,16.0,4.0,1871.05,-410.66,885.12],[1.0,1.0,0.0,0.0,27.0,11843.26,2949.79,833.83],[1.0,1.0,0.0,1.0,13.0,4748.23,1298.97,143.05],[1.0,1.0,0.0,2.0,25.0,974.2,232.26,93.98],[1.0,1.0,0.0,3.0,44.0,10539.96,3894.91,2521.39],[1.0,1.0,0.0,4.0,9.0,11367.88,-1514.02,5261.29],[1.0,1.0,0.0,5.0,21.0,9866.75,1149.88,1317.59],[1.0,1.0,0.0,6.0,3.0,4159.91,1404.97,1039.98],[1.0,1.0,0.0,7.0,13.0,339.5,150.8,19.46],[1.0,1.0,0.0,8.0,8.0,103.51,37.26,4.79],[1.0,1.0,0.0,9.0,20.0,2110.94,498.2,243.31],[1.0,1.0,0.0,10.0,13.0,281.7,124.17,15.54],[1.0,1.0,0.0,11.0,5.0,4754.8,-1870.12,5319.96],[1.0,1.0,0.0,12.0,37.0,1269.65,583.96,33.49],[1.0,1.0,0.0,13.0,35.0,12095.47,2038.22,2119.3],[1.0,1.0,0.0,14.0,26.0,5359.6,525.13,613.65],[1.0,1.0,0.0,15.0,7.0,1184.82,-122.04,191.23],[1.0,1.0,0.0,16.0,7.0,4033.07,-1341.12,2688.71],[1.0,1.0,1.0,0.0,14.0,2084.75,691.23,35.36],[1.0,1.0,1.0,1.0,6.0,343.88,106.86,11.3],[1.0,1.0,1.0,2.0,14.0,355.42,95.29,11.03],[1.0,1.0,1.0,3.0,29.0,2825.01,708.54,1188.07],[1.0,1.0,1.0,4.0,6.0,5934.68,485.82,993.5],[1.0,1.0,1.0,5.0,11.0,6039.42,592.94,1034.73],[1.0,1.0,1.0,7.0,6.0,199.1,87.1,11.07],[1.0,1.0,1.0,8.0,6.0,65.9,7.94,8.12],[1.0,1.0,1.0,9.0,20.0,1935.99,148.73,341.32],[1.0,1.0,1.0,10.0,2.0,45.24,19.23,5.92],[1.0,1.0,1.0,11.0,4.0,7349.94,1210.29,3897.46],[1.0,1.0,1.0,12.0,24.0,1406.79,660.56,10.73],[1.0,1.0,1.0,13.0,24.0,7726.91,914.16,1552.24],[1.0,1.0,1.0,14.0,25.0,5395.73,1012.52,81.24],[1.0,1.0,1.0,16.0,5.0,3008.29,-726.16,1840.34],[1.0,1.0,2.0,0.0,12.0,3983.43,1047.44,115.46],[1.0,1.0,2.0,1.0,7.0,1599.14,444.77,24.53],[1.0,1.0,2.0,2.0,15.0,377.74,72.84,56.04],[1.0,1.0,2.0,3.0,20.0,841.71,140.02,475.85],[1.0,1.0,2.0,4.0,5.0,2350.88,40.78,733.82],[1.0,1.0,2.0,5.0,7.0,4103.1,735.98,469.04],[1.0,1.0,2.0,6.0,1.0,799.98,250.0,200.0],[1.0,1.0,2.0,7.0,2.0,338.23,125.94,50.25],[1.0,1.0,2.0,8.0,3.0,22.25,5.0,0.79],[1.0,1.0,2.0,9.0,12.0,1222.99,90.14,167.68],[1.0,1.0,2.0,10.0,5.0,189.32,69.84,37.74],[1.0,1.0,2.0,11.0,1.0,2321.9,1114.51,0.0],[1.0,1.0,2.0,12.0,25.0,1291.23,564.53,75.15],[1.0,1.0,2.0,13.0,10.0,2739.03,347.28,537.06],[1.0,1.0,2.0,14.0,6.0,2553.88,194.91,326.28],[1.0,1.0,2.0,15.0,1.0,3.49,-0.7,0.87],[1.0,1.0,2.0,16.0,3.0,1843.45,-208.58,872.01],[1.0,2.0,0.0,0.0,14.0,2110.15,357.76,216.55],[1.0,2.0,0.0,1.0,12.0,2988.4,630.47,361.89],[1.0,2.0,0.0,2.0,16.0,536.78,145.29,31.39],[1.0,2.0,0.0,3.0,30.0,10395.14,1130.97,8010.81],[1.0,2.0,0.0,4.0,2.0,813.61,89.29,72.59],[1.0,2.0,0.0,5.0,11.0,5815.34,1070.85,345.8],[1.0,2.0,0.0,7.0,8.0,393.66,183.64,6.83],[1.0,2.0,0.0,8.0,2.0,86.66,32.8,13.78],[1.0,2.0,0.0,9.0,17.0,3006.39,409.38,215.02],[1.0,2.0,0.0,10.0,7.0,1010.6,492.73,4.72],[1.0,2.0,0.0,11.0,2.0,3112.98,1414.82,32.98],[1.0,2.0,0.0,12.0,20.0,1619.03,699.58,127.77],[1.0,2.0,0.0,13.0,19.0,5847.66,1558.26,140.69],[1.0,2.0,0.0,14.0,18.0,4368.75,-290.79,613.48],[1.0,2.0,0.0,15.0,1.0,88.96,10.01,22.24],[1.0,2.0,0.0,16.0,7.0,7012.09,-2210.82,4112.46],[1.0,2.0,1.0,0.0,6.0,1175.65,287.06,198.65],[1.0,2.0,1.0,1.0,2.0,833.1,322.71,1.75],[1.0,2.0,1.0,2.0,12.0,622.65,90.45,117.18],[1.0,2.0,1.0,3.0,24.0,2594.1,-882.08,3962.36],[1.0,2.0,1.0,4.0,2.0,363.02,13.99,90.76],[1.0,2.0,1.0,5.0,7.0,3134.48,-101.9,685.38],[1.0,2.0,1.0,6.0,1.0,899.97,314.99,0.0],[1.0,2.0,1.0,7.0,8.0,913.81,393.6,66.4],[1.0,2.0,1.0,8.0,2.0,38.74,12.99,9.69],[1.0,2.0,1.0,9.0,20.0,2194.58,719.03,338.01],[1.0,2.0,1.0,10.0,7.0,83.74,33.31,12.22],[1.0,2.0,1.0,12.0,13.0,479.82,173.79,86.56],[1.0,2.0,1.0,13.0,8.0,2000.72,383.78,304.45],[1.0,2.0,1.0,14.0,7.0,2372.99,90.51,541.14],[1.0,2.0,1.0,15.0,1.0,41.38,4.65,10.34],[1.0,2.0,1.0,16.0,1.0,358.58,39.44,0.0],[1.0,2.0,2.0,0.0,4.0,855.73,183.22,105.98],[1.0,2.0,2.0,1.0,1.0,28.84,9.52,0.0],[1.0,2.0,2.0,2.0,4.0,202.89,57.61,3.98],[1.0,2.0,2.0,3.0,8.0,478.08,207.67,32.73],[1.0,2.0,2.0,4.0,1.0,61.96,4.34,0.0],[1.0,2.0,2.0,5.0,1.0,1166.92,131.28,291.73],[1.0,2.0,2.0,7.0,3.0,101.58,44.99,3.06],[1.0,2.0,2.0,9.0,4.0,176.84,43.73,0.0],[1.0,2.0,2.0,10.0,2.0,23.7,8.15,5.92],[1.0,2.0,2.0,12.0,3.0,204.4,75.3,43.0],[1.0,2.0,2.0,14.0,2.0,745.49,-67.77,186.37],[1.0,3.0,0.0,0.0,33.0,8394.36,2510.72,235.65],[1.0,3.0,0.0,1.0,11.0,3462.51,798.83,284.05],[1.0,3.0,0.0,2.0,29.0,1103.51,281.09,45.4],[1.0,3.0,0.0,3.0,51.0,2722.32,828.82,850.28],[1.0,3.0,0.0,4.0,18.0,6704.63,-1267.68,2916.09],[1.0,3.0,0.0,5.0,17.0,8760.64,397.0,2190.16],[1.0,3.0,0.0,6.0,4.0,3919.9,1154.97,979.97],[1.0,3.0,0.0,7.0,9.0,698.33,319.6,6.88],[1.0,3.0,0.0,8.0,10.0,115.45,42.46,1.13],[1.0,3.0,0.0,9.0,37.0,4027.17,952.28,213.47],[1.0,3.0,0.0,10.0,14.0,266.37,124.31,1.26],[1.0,3.0,0.0,11.0,5.0,8072.23,903.38,2018.06],[1.0,3.0,0.0,12.0,52.0,2996.88,1282.44,246.85],[1.0,3.0,0.0,13.0,31.0,11779.96,1143.42,2944.99],[1.0,3.0,0.0,14.0,34.0,10784.97,1214.89,160.56],[1.0,3.0,0.0,15.0,9.0,239.46,42.03,2.74],[1.0,3.0,0.0,16.0,15.0,8585.5,203.8,1789.28],[1.0,3.0,1.0,0.0,13.0,1427.51,408.39,68.62],[1.0,3.0,1.0,1.0,12.0,2385.1,578.61,162.79],[1.0,3.0,1.0,2.0,10.0,636.45,178.24,2.56],[1.0,3.0,1.0,3.0,25.0,883.9,116.75,586.85],[1.0,3.0,1.0,4.0,3.0,2649.19,277.45,467.5],[1.0,3.0,1.0,5.0,14.0,7319.93,111.09,1829.98],[1.0,3.0,1.0,6.0,2.0,3589.92,1645.46,110.0],[1.0,3.0,1.0,7.0,5.0,532.65,249.07,0.0],[1.0,3.0,1.0,8.0,1.0,8.72,2.29,2.18],[1.0,3.0,1.0,9.0,20.0,2263.95,557.16,225.01],[1.0,3.0,1.0,10.0,11.0,736.66,317.68,42.24],[1.0,3.0,1.0,11.0,2.0,299.97,35.0,199.98],[1.0,3.0,1.0,12.0,24.0,1672.97,763.4,65.87],[1.0,3.0,1.0,13.0,17.0,4197.69,476.43,1049.42],[1.0,3.0,1.0,14.0,11.0,3650.72,277.18,335.4],[1.0,3.0,1.0,15.0,2.0,64.09,18.76,0.0],[1.0,3.0,1.0,16.0,4.0,4533.8,772.79,110.93],[1.0,3.0,2.0,0.0,5.0,853.89,230.63,0.0],[1.0,3.0,2.0,1.0,4.0,1877.58,515.92,10.89],[1.0,3.0,2.0,2.0,9.0,295.03,83.91,0.0],[1.0,3.0,2.0,3.0,12.0,282.29,80.95,99.1],[1.0,3.0,2.0,5.0,10.0,7619.45,464.35,1904.86],[1.0,3.0,2.0,7.0,1.0,124.46,58.5,0.0],[1.0,3.0,2.0,8.0,3.0,15.38,6.09,0.0],[1.0,3.0,2.0,9.0,11.0,1622.31,390.86,18.84],[1.0,3.0,2.0,10.0,1.0,14.62,6.87,0.0],[1.0,3.0,2.0,12.0,18.0,802.62,367.86,24.47],[1.0,3.0,2.0,13.0,4.0,2562.34,230.0,640.59],[1.0,3.0,2.0,14.0,6.0,1484.66,111.46,0.0],[1.0,3.0,2.0,15.0,1.0,5.84,0.73,1.46],[1.0,3.0,2.0,16.0,2.0,2918.38,225.94,251.24],[2.0,0.0,0.0,0.0,25.0,7690.97,1371.31,914.16],[2.0,0.0,0.0,1.0,9.0,1281.08,64.28,477.45],[2.0,0.0,0.0,2.0,22.0,936.98,125.68,199.88],[2.0,0.0,0.0,3.0,40.0,11601.99,3079.14,4960.55],[2.0,0.0,0.0,4.0,7.0,4697.2,-522.15,1850.18],[2.0,0.0,0.0,5.0,17.0,6618.04,322.06,1197.36],[2.0,0.0,0.0,7.0,9.0,366.64,135.67,67.13],[2.0,0.0,0.0,8.0,7.0,111.14,38.17,27.33],[2.0,0.0,0.0,9.0,29.0,3118.87,-417.38,1611.81],[2.0,0.0,0.0,10.0,10.0,133.43,55.18,15.86],[2.0,0.0,0.0,11.0,2.0,1650.81,14.12,776.04],[2.0,0.0,0.0,12.0,46.0,1769.22,667.33,329.34],[2.0,0.0,0.0,13.0,35.0,11299.9,1865.34,1721.52],[2.0,0.0,0.0,14.0,25.0,6238.27,438.46,878.1],[2.0,0.0,0.0,15.0,6.0,4252.38,-819.44,1058.87],[2.0,0.0,0.0,16.0,10.0,4940.11,-1177.95,2562.01],[2.0,0.0,1.0,0.0,16.0,1788.97,435.22,213.26],[2.0,0.0,1.0,1.0,12.0,901.04,-623.85,1224.56],[2.0,0.0,1.0,2.0,15.0,339.15,67.54,45.25],[2.0,0.0,1.0,3.0,26.0,2048.27,-253.11,2292.29],[2.0,0.0,1.0,4.0,5.0,3687.74,54.11,878.72],[2.0,0.0,1.0,5.0,20.0,13987.67,1293.11,2614.95],[2.0,0.0,1.0,6.0,1.0,17499.95,8399.98,0.0],[2.0,0.0,1.0,7.0,2.0,436.87,179.79,37.34],[2.0,0.0,1.0,8.0,5.0,58.31,22.58,8.36],[2.0,0.0,1.0,9.0,21.0,978.0,-313.75,951.4],[2.0,0.0,1.0,10.0,5.0,104.67,35.2,26.17],[2.0,0.0,1.0,12.0,32.0,1909.71,783.62,236.34],[2.0,0.0,1.0,13.0,18.0,5353.37,789.28,979.65],[2.0,0.0,1.0,14.0,12.0,3985.16,414.0,696.99],[2.0,0.0,1.0,15.0,2.0,42.53,7.69,5.14],[2.0,0.0,1.0,16.0,5.0,7592.71,1150.93,42.59],[2.0,0.0,2.0,0.0,9.0,1322.28,81.56,318.08],[2.0,0.0,2.0,1.0,7.0,3832.89,938.26,508.7],[2.0,0.0,2.0,2.0,9.0,243.83,68.2,5.29],[2.0,0.0,2.0,3.0,14.0,406.12,93.3,187.6],[2.0,0.0,2.0,5.0,5.0,2743.91,-110.94,934.27],[2.0,0.0,2.0,7.0,2.0,167.29,56.46,41.82],[2.0,0.0,2.0,8.0,3.0,77.93,22.47,7.11],[2.0,0.0,2.0,9.0,15.0,1018.82,-851.2,1229.89],[2.0,0.0,2.0,10.0,7.0,273.15,114.59,27.25],[2.0,0.0,2.0,11.0,1.0,1007.98,43.2,431.99],[2.0,0.0,2.0,12.0,14.0,1686.67,754.43,122.01],[2.0,0.0,2.0,13.0,9.0,3249.18,760.51,274.78],[2.0,0.0,2.0,14.0,10.0,2588.08,-73.48,301.88],[2.0,0.0,2.0,16.0,2.0,1390.1,319.64,0.0],[2.0,1.0,0.0,0.0,21.0,2482.44,497.39,198.64],[2.0,1.0,0.0,1.0,18.0,4736.66,1340.95,267.91],[2.0,1.0,0.0,2.0,29.0,1082.06,256.72,59.71],[2.0,1.0,0.0,3.0,71.0,8129.98,721.35,6191.43],[2.0,1.0,0.0,4.0,11.0,3546.93,-446.02,1354.42],[2.0,1.0,0.0,5.0,30.0,16826.88,1226.28,3821.24],[2.0,1.0,0.0,6.0,3.0,11039.93,1491.99,7359.95],[2.0,1.0,0.0,7.0,10.0,948.19,408.72,47.59],[2.0,1.0,0.0,8.0,10.0,161.38,51.45,5.68],[2.0,1.0,0.0,9.0,39.0,5338.15,1375.47,306.8],[2.0,1.0,0.0,10.0,16.0,581.92,254.6,33.94],[2.0,1.0,0.0,11.0,6.0,15005.0,-2863.8,11095.62],[2.0,1.0,0.0,12.0,43.0,2143.89,979.15,78.95],[2.0,1.0,0.0,13.0,31.0,6680.61,635.62,1687.39],[2.0,1.0,0.0,14.0,41.0,9561.48,1024.9,555.09],[2.0,1.0,0.0,15.0,12.0,1875.6,-82.37,203.77],[2.0,1.0,0.0,16.0,11.0,3776.88,-764.28,2041.6],[2.0,1.0,1.0,0.0,11.0,1918.67,422.33,302.96],[2.0,1.0,1.0,1.0,14.0,3699.87,836.53,324.24],[2.0,1.0,1.0,2.0,22.0,671.42,189.77,12.93],[2.0,1.0,1.0,3.0,38.0,4772.52,1538.82,1337.56],[2.0,1.0,1.0,4.0,5.0,2042.82,269.95,308.66],[2.0,1.0,1.0,5.0,10.0,4260.72,271.02,962.44],[2.0,1.0,1.0,6.0,3.0,3319.93,1059.98,679.99],[2.0,1.0,1.0,7.0,3.0,190.63,84.83,14.39],[2.0,1.0,1.0,8.0,8.0,125.23,41.3,13.94],[2.0,1.0,1.0,9.0,28.0,3429.38,592.61,262.08],[2.0,1.0,1.0,10.0,4.0,70.21,30.64,3.98],[2.0,1.0,1.0,11.0,4.0,10210.94,1521.45,1845.88],[2.0,1.0,1.0,12.0,24.0,1105.2,487.0,65.26],[2.0,1.0,1.0,13.0,20.0,7130.25,1104.07,1458.72],[2.0,1.0,1.0,14.0,26.0,7164.72,504.28,357.15],[2.0,1.0,1.0,15.0,7.0,154.8,38.97,3.38],[2.0,1.0,1.0,16.0,9.0,3027.98,-1144.66,2018.66],[2.0,1.0,2.0,0.0,14.0,1830.27,340.28,196.5],[2.0,1.0,2.0,1.0,3.0,990.06,125.12,195.64],[2.0,1.0,2.0,2.0,7.0,129.09,30.43,16.31],[2.0,1.0,2.0,3.0,18.0,6053.04,542.47,4459.72],[2.0,1.0,2.0,4.0,3.0,374.48,-22.01,115.36],[2.0,1.0,2.0,5.0,4.0,1922.88,285.5,265.98],[2.0,1.0,2.0,6.0,1.0,5399.91,2591.96,0.0],[2.0,1.0,2.0,7.0,4.0,165.93,63.09,28.4],[2.0,1.0,2.0,8.0,5.0,57.56,19.72,14.39],[2.0,1.0,2.0,9.0,9.0,819.61,167.1,85.49],[2.0,1.0,2.0,10.0,9.0,127.03,50.45,16.7],[2.0,1.0,2.0,12.0,24.0,1677.03,668.87,247.73],[2.0,1.0,2.0,13.0,13.0,7479.49,428.13,2168.56],[2.0,1.0,2.0,14.0,10.0,5369.86,1275.1,111.55],[2.0,1.0,2.0,15.0,2.0,55.86,16.2,0.0],[2.0,1.0,2.0,16.0,2.0,1020.47,-397.84,680.31],[2.0,2.0,0.0,0.0,21.0,3826.07,1092.93,332.21],[2.0,2.0,0.0,1.0,8.0,2159.03,264.07,484.44],[2.0,2.0,0.0,2.0,24.0,954.07,240.38,52.93],[2.0,2.0,0.0,3.0,33.0,916.51,2.2,833.62],[2.0,2.0,0.0,4.0,5.0,2839.76,480.57,112.78],[2.0,2.0,0.0,5.0,10.0,4130.09,910.14,219.72],[2.0,2.0,0.0,6.0,1.0,1599.92,751.96,0.0],[2.0,2.0,0.0,7.0,6.0,247.34,93.53,38.61],[2.0,2.0,0.0,8.0,2.0,30.74,14.86,0.0],[2.0,2.0,0.0,9.0,23.0,4197.07,983.75,192.71],[2.0,2.0,0.0,10.0,9.0,183.64,85.77,7.45],[2.0,2.0,0.0,11.0,3.0,9841.65,2962.24,695.7],[2.0,2.0,0.0,12.0,31.0,1802.8,778.98,162.22],[2.0,2.0,0.0,13.0,17.0,7732.34,976.23,1456.73],[2.0,2.0,0.0,14.0,15.0,4882.46,433.5,339.25],[2.0,2.0,0.0,15.0,3.0,69.94,7.45,16.23],[2.0,2.0,0.0,16.0,9.0,7690.78,596.23,959.52],[2.0,2.0,1.0,0.0,9.0,4165.41,1318.42,59.85],[2.0,2.0,1.0,1.0,5.0,2574.19,795.81,54.56],[2.0,2.0,1.0,2.0,7.0,316.34,75.89,21.5],[2.0,2.0,1.0,3.0,22.0,1026.32,-55.81,1095.39],[2.0,2.0,1.0,4.0,1.0,289.57,10.86,72.39],[2.0,2.0,1.0,5.0,6.0,2079.25,335.49,174.16],[2.0,2.0,1.0,6.0,1.0,959.97,120.0,239.99],[2.0,2.0,1.0,7.0,3.0,103.29,50.14,0.0],[2.0,2.0,1.0,8.0,1.0,11.34,5.22,0.0],[2.0,2.0,1.0,9.0,10.0,502.87,79.54,89.06],[2.0,2.0,1.0,10.0,3.0,81.4,36.68,4.82],[2.0,2.0,1.0,11.0,2.0,3305.48,1347.7,265.48],[2.0,2.0,1.0,12.0,11.0,454.11,175.12,77.51],[2.0,2.0,1.0,13.0,7.0,1767.81,196.22,441.95],[2.0,2.0,1.0,14.0,10.0,2996.28,389.74,112.8],[2.0,2.0,1.0,15.0,5.0,1253.75,-226.52,303.26],[2.0,2.0,1.0,16.0,6.0,4807.53,-557.0,1831.31],[2.0,2.0,2.0,0.0,4.0,1388.36,132.49,347.09],[2.0,2.0,2.0,1.0,3.0,874.25,99.49,178.48],[2.0,2.0,2.0,2.0,3.0,167.86,36.36,16.89],[2.0,2.0,2.0,3.0,14.0,2169.38,671.64,734.29],[2.0,2.0,2.0,4.0,2.0,579.9,61.29,84.98],[2.0,2.0,2.0,5.0,1.0,121.78,30.44,0.0],[2.0,2.0,2.0,7.0,3.0,545.11,256.2,0.0],[2.0,2.0,2.0,8.0,3.0,62.79,14.82,0.0],[2.0,2.0,2.0,9.0,12.0,682.85,215.11,16.05],[2.0,2.0,2.0,10.0,3.0,23.17,10.05,2.3],[2.0,2.0,2.0,11.0,1.0,91.48,-1.83,91.48],[2.0,2.0,2.0,12.0,17.0,1666.26,769.96,42.9],[2.0,2.0,2.0,13.0,8.0,2343.67,335.47,395.56],[2.0,2.0,2.0,14.0,7.0,2961.66,264.83,244.32],[2.0,2.0,2.0,15.0,3.0,132.61,34.18,7.01],[2.0,3.0,0.0,0.0,23.0,9461.81,2343.52,37.95],[2.0,3.0,0.0,1.0,18.0,2664.05,887.21,30.58],[2.0,3.0,0.0,2.0,21.0,613.32,184.82,2.83],[2.0,3.0,0.0,3.0,68.0,5063.84,1494.41,1685.48],[2.0,3.0,0.0,4.0,8.0,6066.2,327.8,1217.86],[2.0,3.0,0.0,5.0,31.0,12582.42,214.85,3145.61],[2.0,3.0,0.0,6.0,4.0,7079.88,2501.96,1519.97],[2.0,3.0,0.0,7.0,12.0,679.62,322.48,6.95],[2.0,3.0,0.0,8.0,11.0,183.35,36.47,0.0],[2.0,3.0,0.0,9.0,40.0,4805.97,1433.35,78.84],[2.0,3.0,0.0,10.0,18.0,475.82,226.34,0.0],[2.0,3.0,0.0,11.0,7.0,7216.72,585.44,2179.16],[2.0,3.0,0.0,12.0,66.0,3551.73,1672.33,17.84],[2.0,3.0,0.0,13.0,29.0,7625.64,589.8,1906.41],[2.0,3.0,0.0,14.0,35.0,5740.27,838.36,94.11],[2.0,3.0,0.0,15.0,4.0,138.52,26.74,0.0],[2.0,3.0,0.0,16.0,12.0,9185.53,62.35,2154.44],[2.0,3.0,1.0,0.0,24.0,4795.59,1297.86,124.26],[2.0,3.0,1.0,1.0,11.0,1221.2,319.85,12.22],[2.0,3.0,1.0,2.0,14.0,206.36,58.91,3.35],[2.0,3.0,1.0,3.0,44.0,1872.09,568.89,598.22],[2.0,3.0,1.0,4.0,4.0,1267.17,-99.44,419.64],[2.0,3.0,1.0,5.0,24.0,14118.59,601.65,3529.65],[2.0,3.0,1.0,6.0,1.0,1199.98,374.99,299.99],[2.0,3.0,1.0,7.0,6.0,843.28,398.85,0.0],[2.0,3.0,1.0,8.0,2.0,49.46,18.81,7.89],[2.0,3.0,1.0,9.0,17.0,1189.89,284.56,58.91],[2.0,3.0,1.0,10.0,8.0,696.19,258.6,158.86],[2.0,3.0,1.0,11.0,3.0,3503.97,-144.41,1438.43],[2.0,3.0,1.0,12.0,34.0,1744.73,792.23,72.95],[2.0,3.0,1.0,13.0,21.0,8693.49,845.28,2173.37],[2.0,3.0,1.0,14.0,13.0,5096.1,416.54,259.08],[2.0,3.0,1.0,15.0,10.0,5904.52,272.63,12.85],[2.0,3.0,1.0,16.0,15.0,13999.46,340.61,3431.65],[2.0,3.0,2.0,0.0,9.0,1225.02,330.98,45.18],[2.0,3.0,2.0,1.0,6.0,1116.0,253.61,80.84],[2.0,3.0,2.0,2.0,10.0,300.45,79.26,5.02],[2.0,3.0,2.0,3.0,27.0,5623.25,1812.32,1806.24],[2.0,3.0,2.0,4.0,3.0,883.71,97.51,127.03],[2.0,3.0,2.0,5.0,7.0,4526.4,383.54,1131.6],[2.0,3.0,2.0,6.0,1.0,1499.95,449.98,0.0],[2.0,3.0,2.0,7.0,2.0,35.7,16.98,0.0],[2.0,3.0,2.0,8.0,2.0,30.91,8.18,0.0],[2.0,3.0,2.0,9.0,14.0,1792.65,386.11,78.22],[2.0,3.0,2.0,10.0,5.0,76.63,34.51,3.98],[2.0,3.0,2.0,11.0,3.0,4072.87,-556.79,2484.28],[2.0,3.0,2.0,12.0,24.0,1150.54,542.52,14.17],[2.0,3.0,2.0,13.0,17.0,9606.27,933.64,2401.57],[2.0,3.0,2.0,14.0,6.0,2204.36,278.05,127.76],[2.0,3.0,2.0,15.0,6.0,397.07,25.51,46.34],[2.0,3.0,2.0,16.0,5.0,3401.65,-1378.97,2511.12],[3.0,0.0,0.0,0.0,37.0,4182.51,958.88,348.62],[3.0,0.0,0.0,1.0,28.0,4561.97,-850.34,2936.77],[3.0,0.0,0.0,2.0,39.0,1453.01,299.93,229.67],[3.0,0.0,0.0,3.0,62.0,12149.02,134.51,10837.54],[3.0,0.0,0.0,4.0,8.0,3016.27,-245.68,1195.29],[3.0,0.0,0.0,5.0,24.0,11851.88,765.53,2959.18],[3.0,0.0,0.0,7.0,8.0,798.83,331.84,85.43],[3.0,0.0,0.0,8.0,10.0,192.43,74.11,10.98],[3.0,0.0,0.0,9.0,31.0,2609.81,-592.34,1562.05],[3.0,0.0,0.0,10.0,12.0,318.27,145.67,14.41],[3.0,0.0,0.0,12.0,49.0,2689.35,1069.17,397.42],[3.0,0.0,0.0,13.0,28.0,11301.46,2016.77,1693.26],[3.0,0.0,0.0,14.0,38.0,6087.65,151.15,908.23],[3.0,0.0,0.0,15.0,9.0,185.41,28.91,29.58],[3.0,0.0,0.0,16.0,15.0,6947.8,-1307.35,3088.56],[3.0,0.0,1.0,0.0,15.0,2143.17,591.28,157.55],[3.0,0.0,1.0,1.0,12.0,3302.28,376.36,959.45],[3.0,0.0,1.0,2.0,13.0,446.6,102.38,42.15],[3.0,0.0,1.0,3.0,45.0,6019.74,-3609.52,12621.52],[3.0,0.0,1.0,4.0,6.0,2293.18,-289.45,944.26],[3.0,0.0,1.0,5.0,14.0,8273.27,1926.47,316.71],[3.0,0.0,1.0,6.0,2.0,2719.94,677.99,679.99],[3.0,0.0,1.0,7.0,4.0,220.1,95.22,9.79],[3.0,0.0,1.0,8.0,6.0,101.73,36.85,20.87],[3.0,0.0,1.0,9.0,16.0,1597.7,-563.81,1110.46],[3.0,0.0,1.0,10.0,6.0,162.74,66.33,22.58],[3.0,0.0,1.0,11.0,3.0,5097.1,465.76,1698.07],[3.0,0.0,1.0,12.0,37.0,2154.1,857.91,323.12],[3.0,0.0,1.0,13.0,12.0,2828.16,433.48,466.57],[3.0,0.0,1.0,14.0,19.0,4969.47,195.12,555.7],[3.0,0.0,1.0,15.0,3.0,4194.79,83.96,7.68],[3.0,0.0,1.0,16.0,5.0,1775.98,-555.02,1081.62],[3.0,0.0,2.0,0.0,9.0,4593.98,1391.06,368.35],[3.0,0.0,2.0,1.0,6.0,1069.06,160.59,192.75],[3.0,0.0,2.0,2.0,17.0,391.66,95.53,79.09],[3.0,0.0,2.0,3.0,25.0,2936.61,-482.13,3780.69],[3.0,0.0,2.0,4.0,2.0,331.03,24.11,41.91],[3.0,0.0,2.0,5.0,8.0,3093.31,20.28,761.47],[3.0,0.0,2.0,6.0,1.0,959.98,335.99,240.0],[3.0,0.0,2.0,7.0,5.0,177.6,60.74,38.76],[3.0,0.0,2.0,8.0,2.0,26.07,1.28,0.0],[3.0,0.0,2.0,9.0,14.0,866.51,-163.53,386.94],[3.0,0.0,2.0,10.0,5.0,106.23,47.84,8.53],[3.0,0.0,2.0,11.0,3.0,897.47,205.96,353.33],[3.0,0.0,2.0,12.0,23.0,1391.84,544.5,232.77],[3.0,0.0,2.0,13.0,18.0,9081.54,1669.48,895.05],[3.0,0.0,2.0,14.0,16.0,2636.63,62.74,278.52],[3.0,0.0,2.0,15.0,2.0,27.36,4.85,1.39],[3.0,0.0,2.0,16.0,6.0,1865.54,-300.48,913.71],[3.0,1.0,0.0,0.0,40.0,5749.79,1164.78,636.0],[3.0,1.0,0.0,1.0,19.0,7781.63,1807.72,732.51],[3.0,1.0,0.0,2.0,35.0,1182.65,344.95,58.37],[3.0,1.0,0.0,3.0,72.0,9057.72,1187.7,5748.16],[3.0,1.0,0.0,4.0,13.0,5632.53,163.47,837.31],[3.0,1.0,0.0,5.0,27.0,18653.12,1046.34,4336.67],[3.0,1.0,0.0,6.0,2.0,11099.94,5109.98,399.98],[3.0,1.0,0.0,7.0,6.0,217.95,100.5,3.44],[3.0,1.0,0.0,8.0,8.0,104.5,42.91,11.03],[3.0,1.0,0.0,9.0,45.0,3422.42,796.97,463.53],[3.0,1.0,0.0,10.0,24.0,463.72,205.64,27.1],[3.0,1.0,0.0,11.0,3.0,733.76,38.74,592.09],[3.0,1.0,0.0,12.0,75.0,3608.97,1647.46,141.02],[3.0,1.0,0.0,13.0,46.0,16083.97,1611.19,4652.8],[3.0,1.0,0.0,14.0,31.0,3629.52,59.63,470.77],[3.0,1.0,0.0,15.0,10.0,5074.28,-939.47,1177.67],[3.0,1.0,0.0,16.0,7.0,2956.92,-767.78,1737.04],[3.0,1.0,1.0,0.0,25.0,6908.05,1534.55,1121.13],[3.0,1.0,1.0,1.0,11.0,3583.61,894.21,100.58],[3.0,1.0,1.0,2.0,25.0,971.77,212.28,84.27],[3.0,1.0,1.0,3.0,36.0,3029.95,763.78,1264.68],[3.0,1.0,1.0,4.0,5.0,1705.7,280.0,187.95],[3.0,1.0,1.0,5.0,16.0,7808.95,973.68,1016.34],[3.0,1.0,1.0,6.0,1.0,899.98,75.0,599.99],[3.0,1.0,1.0,7.0,11.0,443.15,194.34,30.64],[3.0,1.0,1.0,8.0,5.0,58.05,14.32,9.34],[3.0,1.0,1.0,9.0,38.0,3592.73,920.6,78.26],[3.0,1.0,1.0,10.0,8.0,231.1,103.47,15.76],[3.0,1.0,1.0,11.0,3.0,5931.62,452.21,1523.65],[3.0,1.0,1.0,12.0,36.0,1916.35,818.27,193.36],[3.0,1.0,1.0,13.0,31.0,11263.67,811.74,3139.25],[3.0,1.0,1.0,14.0,24.0,10022.4,1497.14,800.48],[3.0,1.0,1.0,15.0,6.0,1677.32,-56.32,143.87],[3.0,1.0,1.0,16.0,8.0,4712.54,-905.54,2578.11],[3.0,1.0,2.0,0.0,11.0,2178.95,660.03,59.99],[3.0,1.0,2.0,1.0,4.0,926.18,124.32,206.38],[3.0,1.0,2.0,2.0,11.0,451.21,132.49,3.88],[3.0,1.0,2.0,3.0,24.0,1901.47,609.36,555.95],[3.0,1.0,2.0,5.0,10.0,4770.59,356.77,930.99],[3.0,1.0,2.0,6.0,2.0,12399.95,4387.98,2799.99],[3.0,1.0,2.0,7.0,3.0,185.56,72.57,26.17],[3.0,1.0,2.0,8.0,2.0,24.44,11.7,0.0],[3.0,1.0,2.0,9.0,20.0,3441.85,547.2,471.94],[3.0,1.0,2.0,10.0,5.0,96.56,46.2,0.0],[3.0,1.0,2.0,11.0,3.0,5161.83,2459.53,0.0],[3.0,1.0,2.0,12.0,26.0,1836.34,856.7,52.36],[3.0,1.0,2.0,13.0,19.0,8726.93,995.18,1922.91],[3.0,1.0,2.0,14.0,19.0,6348.13,983.75,287.63],[3.0,1.0,2.0,15.0,2.0,266.08,13.9,0.0],[3.0,1.0,2.0,16.0,8.0,4156.51,-1231.58,2645.63],[3.0,2.0,0.0,0.0,22.0,3104.55,683.33,402.37],[3.0,2.0,0.0,1.0,20.0,2374.0,457.82,301.48],[3.0,2.0,0.0,2.0,28.0,824.9,179.59,83.2],[3.0,2.0,0.0,3.0,30.0,4562.91,-71.87,4200.64],[3.0,2.0,0.0,4.0,10.0,4268.92,485.44,397.37],[3.0,2.0,0.0,5.0,21.0,10897.48,1306.26,1478.85],[3.0,2.0,0.0,6.0,2.0,2359.96,941.99,240.0],[3.0,2.0,0.0,7.0,8.0,424.99,180.34,31.18],[3.0,2.0,0.0,8.0,5.0,80.93,33.69,6.08],[3.0,2.0,0.0,9.0,25.0,2254.06,450.17,303.01],[3.0,2.0,0.0,10.0,9.0,422.75,151.88,95.68],[3.0,2.0,0.0,11.0,3.0,1248.97,-39.79,769.0],[3.0,2.0,0.0,12.0,44.0,2902.13,1118.74,531.43],[3.0,2.0,0.0,13.0,20.0,12575.69,1904.39,1925.17],[3.0,2.0,0.0,14.0,21.0,4941.67,385.84,487.42],[3.0,2.0,0.0,15.0,5.0,1912.44,42.66,3.78],[3.0,2.0,0.0,16.0,6.0,5803.37,-895.63,2574.67],[3.0,2.0,1.0,0.0,9.0,2908.5,758.12,12.02],[3.0,2.0,1.0,1.0,17.0,5573.79,1054.26,742.58],[3.0,2.0,1.0,2.0,8.0,233.94,54.5,22.92],[3.0,2.0,1.0,3.0,21.0,3756.61,1505.7,520.37],[3.0,2.0,1.0,4.0,2.0,501.21,43.52,49.57],[3.0,2.0,1.0,5.0,7.0,2755.92,406.83,269.51],[3.0,2.0,1.0,6.0,1.0,2999.95,1439.98,0.0],[3.0,2.0,1.0,7.0,6.0,363.92,155.53,33.24],[3.0,2.0,1.0,9.0,12.0,399.3,87.61,42.46],[3.0,2.0,1.0,10.0,4.0,53.23,22.35,5.03],[3.0,2.0,1.0,11.0,2.0,8695.68,-3867.82,8695.68],[3.0,2.0,1.0,12.0,17.0,783.34,320.55,89.51],[3.0,2.0,1.0,13.0,15.0,5765.32,822.7,1096.69],[3.0,2.0,1.0,14.0,10.0,2956.02,147.13,445.21],[3.0,2.0,1.0,15.0,3.0,537.48,20.32,0.0],[3.0,2.0,1.0,16.0,5.0,4114.8,-1452.02,2270.61],[3.0,2.0,2.0,0.0,11.0,2147.04,505.49,224.2],[3.0,2.0,2.0,2.0,10.0,230.07,44.76,39.9],[3.0,2.0,2.0,3.0,20.0,2823.84,-1027.86,4349.2],[3.0,2.0,2.0,4.0,1.0,387.14,-14.52,96.78],[3.0,2.0,2.0,5.0,5.0,2002.91,217.99,275.77],[3.0,2.0,2.0,8.0,3.0,26.32,8.43,4.73],[3.0,2.0,2.0,9.0,9.0,732.23,31.2,160.91],[3.0,2.0,2.0,10.0,6.0,69.92,30.24,6.04],[3.0,2.0,2.0,12.0,7.0,1054.53,496.21,9.59],[3.0,2.0,2.0,13.0,12.0,3022.26,504.51,397.75],[3.0,2.0,2.0,14.0,9.0,2827.74,459.08,300.63],[3.0,2.0,2.0,15.0,1.0,35.06,10.52,0.0],[3.0,2.0,2.0,16.0,6.0,4188.09,-1251.24,2345.04],[3.0,3.0,0.0,0.0,41.0,9909.61,2957.67,279.52],[3.0,3.0,0.0,1.0,26.0,7163.44,2028.08,7.79],[3.0,3.0,0.0,2.0,48.0,1369.3,397.26,31.68],[3.0,3.0,0.0,3.0,79.0,11639.32,3739.85,3422.18],[3.0,3.0,0.0,4.0,17.0,5387.91,-723.72,2112.55],[3.0,3.0,0.0,5.0,26.0,9214.5,81.84,2303.63],[3.0,3.0,0.0,6.0,5.0,16459.89,7364.97,539.99],[3.0,3.0,0.0,7.0,5.0,122.29,49.43,20.96],[3.0,3.0,0.0,8.0,13.0,142.83,55.92,2.85],[3.0,3.0,0.0,9.0,60.0,5332.95,1508.42,56.16],[3.0,3.0,0.0,10.0,21.0,1401.75,677.35,2.92],[3.0,3.0,0.0,11.0,3.0,1794.95,266.51,448.74],[3.0,3.0,0.0,12.0,68.0,3286.07,1524.28,63.38],[3.0,3.0,0.0,13.0,43.0,11561.86,923.07,2890.47],[3.0,3.0,0.0,14.0,47.0,8674.97,1004.21,304.45],[3.0,3.0,0.0,15.0,9.0,1716.68,-203.62,354.72],[3.0,3.0,0.0,16.0,17.0,11967.59,0.38,2410.61],[3.0,3.0,1.0,0.0,33.0,12161.66,3036.6,192.93],[3.0,3.0,1.0,1.0,15.0,5789.95,1604.12,2.79],[3.0,3.0,1.0,2.0,22.0,877.61,250.24,5.96],[3.0,3.0,1.0,3.0,54.0,12578.8,4268.1,3522.69],[3.0,3.0,1.0,4.0,7.0,4051.35,-468.69,1618.96],[3.0,3.0,1.0,5.0,20.0,9530.3,250.83,2382.57],[3.0,3.0,1.0,6.0,2.0,3279.94,1169.98,819.99],[3.0,3.0,1.0,7.0,10.0,256.73,122.48,2.2],[3.0,3.0,1.0,8.0,4.0,50.63,19.03,2.36],[3.0,3.0,1.0,9.0,24.0,2420.49,544.72,236.81],[3.0,3.0,1.0,10.0,8.0,283.64,133.95,0.0],[3.0,3.0,1.0,11.0,6.0,8094.94,781.47,2223.72],[3.0,3.0,1.0,12.0,44.0,3328.72,1478.41,222.62],[3.0,3.0,1.0,13.0,31.0,6847.28,604.14,1711.82],[3.0,3.0,1.0,14.0,35.0,11283.83,2073.08,70.73],[3.0,3.0,1.0,15.0,6.0,392.32,31.76,0.0],[3.0,3.0,1.0,16.0,13.0,5163.67,-112.11,1129.7],[3.0,3.0,2.0,0.0,22.0,3958.42,1430.55,80.79],[3.0,3.0,2.0,1.0,7.0,801.01,208.13,52.45],[3.0,3.0,2.0,2.0,26.0,430.35,108.07,27.87],[3.0,3.0,2.0,3.0,32.0,2332.05,652.11,870.18],[3.0,3.0,2.0,4.0,5.0,2449.05,161.9,417.19],[3.0,3.0,2.0,5.0,12.0,6702.12,290.75,1675.53],[3.0,3.0,2.0,6.0,4.0,9719.84,3527.94,1679.97],[3.0,3.0,2.0,7.0,5.0,167.45,78.76,6.25],[3.0,3.0,2.0,8.0,6.0,49.67,6.72,2.83],[3.0,3.0,2.0,9.0,22.0,2245.03,531.95,59.3],[3.0,3.0,2.0,10.0,6.0,251.32,113.69,17.76],[3.0,3.0,2.0,11.0,4.0,5888.37,-3631.78,8034.53],[3.0,3.0,2.0,12.0,33.0,2743.0,1308.64,25.75],[3.0,3.0,2.0,13.0,19.0,6282.38,552.69,1570.59],[3.0,3.0,2.0,14.0,19.0,5299.58,383.94,120.6],[3.0,3.0,2.0,15.0,3.0,30.19,7.23,1.55],[3.0,3.0,2.0,16.0,8.0,7240.75,637.67,1104.51]],"curve":[[0.0,1087908.47,320987.6032,0.29505,0.47358,4798.0],[0.1,54369.351,9029.177,0.16607,0.02367,94.0],[0.15,27558.5215,1418.9915,0.05149,0.012,52.0],[0.2,764594.368,90337.306,0.11815,0.33284,3657.0],[0.3,103226.655,-10369.2774,-0.10045,0.04494,227.0],[0.32,14493.4588,-2391.1377,-0.16498,0.00631,27.0],[0.4,116417.784,-23057.0504,-0.19805,0.05068,206.0],[0.45,5484.974,-2493.1111,-0.45453,0.00239,11.0],[0.5,58918.54,-20506.4281,-0.34805,0.02565,66.0],[0.6,6644.7,-5944.6552,-0.89465,0.00289,138.0],[0.7,40620.282,-40075.3569,-0.98658,0.01768,418.0],[0.8,16963.756,-30539.0392,-1.80025,0.00738,300.0]]};
+var F = Kit.fmt;
+function g(id){ return +document.getElementById(id).value; }
+function rowsA(){ var y=g('fY'),r=g('fR'),s=g('fS'),c=g('fC');
+  return D.A.filter(function(x){return (y<0||x[0]===y)&&(r<0||x[1]===r)&&(s<0||x[2]===s)&&(c<0||x[3]===c);}); }
+function rowsB(){ var y=g('fY'),r=g('fR'),s=g('fS'),c=g('fC');
+  return D.B.filter(function(x){return (y<0||x[0]===y)&&(r<0||x[1]===r)&&(s<0||x[2]===s)&&(c<0||D.subCat[x[3]]===c);}); }
+function T(rows,k){ return rows.reduce(function(a,b){return a+b[k];},0); }
+
+function render(){
+  var A=rowsA(), B=rowsB();
+  var sales=T(A,6), profit=T(A,7), listv=T(A,8), given=T(A,9), lossl=T(A,10), losss=T(A,11), lines=T(A,5);
+  Kit.kpis(document.getElementById('kpis'), [
+    {value:F.usdk(sales), label:'Revenue'},
+    {value:F.usdk(profit), label:'Profit'},
+    {value: sales? F.pct1(profit/sales):'--', label:'Net margin', hero:true},
+    {value:F.usdk(given), label:'Discount given away',
+     delta: listv? F.pct1(given/listv)+' of list value':''},
+    {value: sales? F.pct1(losss/sales):'--', label:'Revenue sold at a loss', hero:true,
+     delta: F.int(lossl)+' of '+F.int(lines)+' lines'}
+  ]);
+  document.getElementById('fnote').textContent = F.int(lines)+' order lines of 9,994';
+
+  // discount cliff (unfiltered)
+  var maxShare = Math.max.apply(null, D.curve.map(function(c){return c[4];}));
+  Kit.scatter(document.getElementById('c1'), {
+    data: D.curve.map(function(c){
+      return {x:c[0], y:c[3], size:c[4], label:F.pct0(c[0])+' discount',
+              color: c[3]>0?'var(--pos)':'var(--neg)',
+              tip:'<span class="k">revenue</span> '+F.usdk(c[1])+'<br><span class="k">lines</span> '+F.int(c[5])};
+    }),
+    sizeMax:maxShare, opacity:.85, formatX:F.pct0, formatY:F.pct0,
+    xName:'discount', yName:'margin', xMin:0, xMax:0.85,
+    zeroLine:true, xLabel:'Discount given on the line', height:250});
+
+  // sub-category profit
+  var bySub = D.subs.map(function(nm,i){
+    var s=B.filter(function(x){return x[3]===i;});
+    if(!s.length) return null;
+    var sa=T(s,5), pr=T(s,6), gi=T(s,7), ln=T(s,4);
+    return {label:nm, value:pr, sales:sa, given:gi, lines:ln,
+            margin: sa? pr/sa : 0,
+            color: pr<0?'var(--neg)':'var(--s1)',
+            tip:(sa? F.pct0(pr/sa):'--')+' margin on '+F.usdk(sa)};
+  }).filter(Boolean).sort(function(a,b){return a.value-b.value;});
+  Kit.hbars(document.getElementById('c2'), {data:bySub.slice(0,10), format:F.usdk,
+    tipLabel:'profit ', labelWidth:120, rowHeight:25});
+
+  // by year
+  var yrs = D.years.map(function(y,i){
+    var s=A.filter(function(x){return x[0]===i;});
+    var sa=T(s,6), pr=T(s,7);
+    return {year:y, sales:sa, profit:pr, margin: sa? pr/sa:0};
+  }).filter(function(d){return d.sales>0;});
+  Kit.bars(document.getElementById('c3'), {
+    data: yrs.map(function(d){return {label:String(d.year), value:d.sales,
+      tip:F.usdk(d.profit)+' profit, '+F.pct1(d.margin)+' margin'};}),
+    format:F.usdk, tipLabel:'revenue ', height:210});
+  Kit.line(document.getElementById('c4'), {
+    series:[{points: yrs.map(function(d){return [d.year, d.margin];}), color:'var(--s2)'}],
+    formatX:function(v){return String(Math.round(v));}, formatY:F.pct0,
+    yMin:0, xTicks: Math.max(1, yrs.length-1), height:210});
+
+  // by region
+  var reg = D.regions.map(function(nm,i){
+    var s=A.filter(function(x){return x[1]===i;});
+    if(!s.length) return null;
+    var sa=T(s,6), pr=T(s,7), li=T(s,8), gi=T(s,9);
+    return {label:nm, value: sa? pr/sa:0,
+            tip:F.usdk(sa)+' revenue, '+(li? F.pct1(gi/li):'--')+' average discount given'};
+  }).filter(Boolean);
+  Kit.bars(document.getElementById('c5'), {data:reg, format:F.pct0, tipLabel:'margin ',
+    reference: sales? profit/sales : null, referenceLabel:'company average', height:210});
+
+  Kit.table(document.getElementById('tbl'), {
+    columns:[
+      {key:'label',label:'Sub-category'},
+      {key:'lines',label:'Lines',format:F.int},
+      {key:'sales',label:'Revenue',format:F.usdk},
+      {key:'value',label:'Profit',format:F.usdk,signed:true},
+      {key:'margin',label:'Margin',format:F.pct1,signed:true},
+      {key:'disc',label:'Discount',format:F.pct1}
+    ],
+    rows: bySub.map(function(d){ d.disc = d.sales+d.given? d.given/(d.sales+d.given) : 0; return d; })
+  });
+}
+['fY','fR','fS','fC'].forEach(function(id){document.getElementById(id).addEventListener('change',render);});
+document.getElementById('reset').addEventListener('click',function(){
+  ['fY','fR','fS','fC'].forEach(function(id){document.getElementById(id).value='-1';}); render(); });
+render();
+
+</script>
+</body>
+</html>
