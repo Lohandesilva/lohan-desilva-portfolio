@@ -310,6 +310,18 @@ li { margin-bottom: 0.5rem; }
 .record dd strong { font-weight: 600; }
 .record dd span { display: block; font-size: 0.9rem; color: var(--ink-3); }
 
+.record dt.group { display: none; }
+.record dd.group {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border-top: 1px solid var(--rule);
+  padding-top: 0.9rem;
+  margin: 0.5rem 0 1.1rem;
+}
+
 footer p { max-width: none; }
 
 footer {
